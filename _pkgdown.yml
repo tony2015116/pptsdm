@@ -1,0 +1,16 @@
+url: https://github.com/tony2015116/pptsdm
+template:
+  package: preferably
+  params:
+    toggle: manual
+
+home:
+  links:
+  # - text: GitHub Repo
+    # href: https://github.com/wviechtb/metafor
+  - text: Browse source code
+    href: https://github.com/tony2015116/pptsdd
+  - text: Report a bug
+    href: https://github.com/tony2015116/pptsdd/issues
+  - text: Author Website
+    href: https://www.rusersplace.com
