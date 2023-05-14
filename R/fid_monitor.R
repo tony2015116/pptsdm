@@ -94,7 +94,9 @@ fid_monitor <- function(data, station_type, save_path) {
         axis.text.y = ggplot2::element_text(size = 8),
         legend.title = ggplot2::element_text(size = 8),
         legend.text = ggplot2::element_text(size = 8),
-        legend.position = "top"
+        legend.position = "top",
+        legend.margin = ggplot2::margin(10, 10, 10, 10),  # Adjust the legend margin
+        legend.box.margin = ggplot2::margin(0, 0, 30, 0)  # Extra space at the bottom for the legend
       ) +
       ggplot2::guides(
         shape = ggplot2::guide_legend(override.aes = list(size = 7)),
@@ -144,7 +146,7 @@ fid_monitor <- function(data, station_type, save_path) {
   }
 
   # Combine and save the plots
-  save_combined_plots <- function(path_out) {
+  save_combined_plots <- function(path_out, ...) {
     temp_plot <- create_plots(data = prepared_data, value = colors)
 
     # Calculate the number of unique locations
@@ -154,17 +156,18 @@ fid_monitor <- function(data, station_type, save_path) {
     date_range <- range(prepared_data$date)
     num_days <- as.numeric(difftime(date_range[2], date_range[1], units = "days")) + 1
 
+    # Set the minimum days for width calculation to 30
+    num_days_for_width <- max(num_days, 50)
+
     # Calculate the PDF dimensions based on the number of locations and date range
     width_per_day <- 0.3 # 0.5 cm per day, you can adjust this value based on your preferences
-    pdf_width <- num_days * width_per_day * 2 # Adjust width according to the date range and number of columns
+    pdf_width <- num_days_for_width * width_per_day * 2 # Adjust width according to the date range and number of columns
 
-    height_per_location <- 30 # 5 cm per location, you can adjust this value based on your preferences
+    height_per_location <- 30 # 30 cm per location, you can adjust this value based on your preferences
     pdf_height <- height_per_location * ceiling(num_locations / 2) # Adjust height according to the number of locations and number of rows
-
 
     temp4 <- temp_plot[, `:=`("finals", purrr::pmap(.(.SD[[1]], .SD[[2]]), function(x, y) patchwork::wrap_plots(x, y, ncol = 1))), .SDcols = c("plot1","plot2")][]
     temp5 <- patchwork::wrap_plots(temp4$finals, ncol = 2)
-
 
     ggplot2::ggsave(
       file.path(save_path, "feed_intake_monitor.pdf"),
@@ -173,7 +176,8 @@ fid_monitor <- function(data, station_type, save_path) {
       height = pdf_height,
       units = "cm",
       dpi = "retina",
-      limitsize = FALSE
+      limitsize = FALSE,
+      ...
     )
   }
   save_combined_plots(save_path)

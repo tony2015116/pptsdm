@@ -1,5 +1,10 @@
-
 ^dev$
 ^LICENSE\.md$
-^pptsdm\.Rproj$
+^pptsdd\.Rproj$
 ^\.Rproj\.user$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
+^\.github$
+^vignettes/articles$
+^pptsdm\.Rproj$

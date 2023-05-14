@@ -27,10 +27,10 @@ monitor_schedule(
 \item{...}{other parameters}
 }
 \value{
-CSV files in the path of save_path
+pdf and pngs
 }
 \description{
-\code{monitor_schedule()} is deprecated. We will soon be totally
+Feed intake monitor of pig performance test station
 }
 \examples{
 monitor_schedule(

@@ -50,9 +50,9 @@ fusen::fill_description(
 usethis::use_mit_license("Guo Meng")
 ```
 
-# Feed intake monitor of pigs
+# fid_monitor
 
-This is the first tool of our wonderful package. You can add `1` to any `value` using function `fid_monitor()`.
+You can use `fid_monitor()` to monitor the feed intake of each pig in the nedap or fire pig performance test station as well as the total feed intake of all pigs.
 
 ```{r function-fid_monitor}
 #' Feed intake monitor of pig performance test station
@@ -146,7 +146,9 @@ fid_monitor <- function(data, station_type, save_path) {
         axis.text.y = ggplot2::element_text(size = 8),
         legend.title = ggplot2::element_text(size = 8),
         legend.text = ggplot2::element_text(size = 8),
-        legend.position = "top"
+        legend.position = "top",
+        legend.margin = ggplot2::margin(10, 10, 10, 10),  # Adjust the legend margin
+        legend.box.margin = ggplot2::margin(0, 0, 30, 0)  # Extra space at the bottom for the legend
       ) +
       ggplot2::guides(
         shape = ggplot2::guide_legend(override.aes = list(size = 7)),
@@ -196,7 +198,7 @@ fid_monitor <- function(data, station_type, save_path) {
   }
 
   # Combine and save the plots
-  save_combined_plots <- function(path_out) {
+  save_combined_plots <- function(path_out, ...) {
     temp_plot <- create_plots(data = prepared_data, value = colors)
 
     # Calculate the number of unique locations
@@ -206,17 +208,18 @@ fid_monitor <- function(data, station_type, save_path) {
     date_range <- range(prepared_data$date)
     num_days <- as.numeric(difftime(date_range[2], date_range[1], units = "days")) + 1
 
+    # Set the minimum days for width calculation to 30
+    num_days_for_width <- max(num_days, 50)
+
     # Calculate the PDF dimensions based on the number of locations and date range
     width_per_day <- 0.3 # 0.5 cm per day, you can adjust this value based on your preferences
-    pdf_width <- num_days * width_per_day * 2 # Adjust width according to the date range and number of columns
+    pdf_width <- num_days_for_width * width_per_day * 2 # Adjust width according to the date range and number of columns
 
-    height_per_location <- 30 # 5 cm per location, you can adjust this value based on your preferences
+    height_per_location <- 30 # 30 cm per location, you can adjust this value based on your preferences
     pdf_height <- height_per_location * ceiling(num_locations / 2) # Adjust height according to the number of locations and number of rows
-
 
     temp4 <- temp_plot[, `:=`("finals", purrr::pmap(.(.SD[[1]], .SD[[2]]), function(x, y) patchwork::wrap_plots(x, y, ncol = 1))), .SDcols = c("plot1","plot2")][]
     temp5 <- patchwork::wrap_plots(temp4$finals, ncol = 2)
-
 
     ggplot2::ggsave(
       file.path(save_path, "feed_intake_monitor.pdf"),
@@ -225,14 +228,15 @@ fid_monitor <- function(data, station_type, save_path) {
       height = pdf_height,
       units = "cm",
       dpi = "retina",
-      limitsize = FALSE
+      limitsize = FALSE,
+      ...
     )
   }
   save_combined_plots(save_path)
 }
 ```
 
-```{r examples-stations_monitor}
+```{r examples-fid_monitor}
 data <- data.table::fread("C:/Users/Dell/Downloads/test/ppt_test_data.csv")
 fid_monitor(data = data, station_type = "nedap", save_path = "C:/Users/Dell/Downloads/test")
 ```
@@ -253,6 +257,8 @@ This should be a reproducible and working example
 -->
 ```
 # station_monitor
+
+You can use function of `station_monitor()` to monitor pig performance test data from nedap and fire pig performance test stations. This function can monitor the changes in the number of pigs, total visitation time of pigs, total number of visits, changes in total feed intake, and also monitor the changes in pig weights for a specific pig performance test station.
 
 ```{r function-station_monitor}
 #' Feed intake monitor of pig performance test station
@@ -360,6 +366,7 @@ station_monitor <- function (data, station_type, save_path)
   ][data.table::CJ(date = date, unique = TRUE), on = .(date)]})), .SDcols = "V1"
   ][, `:=`("plot1", purrr::map2(.SD[[1]], location, ~ggplot2::ggplot(data = .x, ggplot2::aes(x = date, y = weight, group = date)) +
                                   ggplot2::geom_boxplot(outlier.color = "red") +
+                                  ggplot2::scale_y_continuous(breaks = scales::pretty_breaks(n = 10)) +
                                   cowplot::background_grid(minor = "none") +
                                   ggplot2::scale_x_date(date_breaks = "1 day", date_labels = "%d") +
                                   ggplot2::theme_bw() +
@@ -399,8 +406,8 @@ station_monitor <- function (data, station_type, save_path)
   # 根据天数计算图片的长度和宽度
   # 使用 map() 遍历 V1 列中的所有列表，计算唯一日期数
   days <- purrr::map_dbl(temp9$V1, ~ length(unique(.x$date)))
-  height <- ifelse(days <= 7, 6, ifelse(days <= 14, 6, ifelse(days <= 30, 6, 6)))
-  width <- ifelse(days <= 7, 3, ifelse(days <= 14, 8, ifelse(days <= 30, 13, 16)))
+  height <- ifelse(days <= 7, 8, ifelse(days <= 14, 8, ifelse(days <= 30, 8, 8)))
+  width <- ifelse(days <= 7, 5, ifelse(days <= 14, 10, ifelse(days <= 30, 13, 16)))
 
   purrr::walk2(
     temp9$plot_name,
@@ -420,257 +427,12 @@ data <- data.table::fread("C:/Users/Dell/Downloads/test/ppt_test_data.csv")
 station_monitor(data = data, station_type = "nedap", save_path = "C:/Users/Dell/Downloads/test")
 ```
 
-This is the first tool of our wonderful package. You can add `1` to any `value` using function `station_monitor()`.
-
-# growth_monitor
-
-This is the first tool of our wonderful package. You can add `1` to any `value` using function `growth_monitor()`.
-
-```{r function-growth_monitor}
-#' Feed intake monitor of pig performance test station
-#' 
-#' @param data Csv data of pig performance test station
-#' @param lmrob Default lmrob = TRUE
-#' @param threshold Defult threshold is 0.8
-#' @param my_break Default break is NULL
-#' @param range_offset Default range_offset is 0.5
-#' @param save_path A string specifying the output file path
-#' 
-#' @importFrom data.table ":=" ".SD"
-#' @importFrom stats "coef" "predict" "residuals" "sd"
-#' 
-#' @return png files about growth curve monitor in each station
-#' @export
-#' 
-growth_monitor <- function(data, lmrob = T, threshold = 0.8, my_break = NULL, range_offset = 0.5, save_path) {
-  # Argument check
-  if (missing(data)) stop("Please provide 'data' argument.")
-  if (missing(save_path)) stop("Please provide 'save_path' argument.")
-  if (!(is.data.frame(data) || data.table::is.data.table(data))) stop("data must be a data.frame or data.table")
-  if (!is.character(save_path)) stop("save_path must be a character string")
-  if (!is.logical(lmrob)) stop("lmrob must be a logical value.")
-  if (!is.numeric(threshold) || length(threshold) != 1) stop("threshold must be a numeric value.")
-
-  if (lmrob) {if (threshold < 0.5 || threshold > 1.5) {stop("When lmrob is TRUE, threshold should be between 0.5 and 1.5.")}} else {
-    if (threshold < 0.5 || threshold > 0.99) {stop("When lmrob is FALSE, threshold should be between 0.5 and 0.99.")}}
-
-  if (!is.null(my_break) && (!is.numeric(my_break) || length(my_break) != 2)) stop("my_break must be either NULL or a numeric vector with two elements.")
-
-  if (!is.numeric(range_offset) || length(range_offset) != 1) stop("range_offset must be a numeric value.")
-
-  #if (range_offset < 0.5 || range_offset > 1) stop("range_offset should be between 0.5 and 1.")
-
-  . <- .GRP <- .N <- color_judge <- day_diff <- day_text <- error_msg <- lm_predict <- lm_slope <- location <- mean_residual <- model_lmrob <- model_rlm <- n_days <- n_responders <- outliers <- r_squared <- responder <- safe_lm <- safe_lmrob <- safe_rlm <- sd_residual <- seq_days <- seq_in_day <- stage <- visit_time <- w <- warning_msg <- weight <- NULL
-
-  # The rest of your function
-  # function of data process
-  process_data <- function(data) {
-    if (is.data.frame(data)) data <- data.table::as.data.table(data)
-
-    data <- unique(data)[!is.na(responder)
-    ][, `:=`(c("date", "time"), data.table::tstrsplit(visit_time, " ", fixed = TRUE))
-    ][, `:=`(date, lubridate::ymd(as.Date(date)))
-    ][order(visit_time), `:=`(seq_days, .GRP), by = date
-    ][order(visit_time), `:=`(seq_in_day, 1:.N), by = .(responder, date)
-    ][order(responder, visit_time)
-    ][, c("responder", "location", "date", "seq_days", "seq_in_day", "weight")
-    ][, .(data = list(.SD)), responder][]
-
-    return(data)
-  }
-
-  # Check for errors and warnings and print messages
-  check_errors_and_warnings <- function(data) {
-    # Check for errors
-    if (any(data[, error_msg != ""])) {
-      cat("Errors encountered during processing:\n")
-      cat(data[data[, error_msg != ""], .(responder, error_msg)], sep = "\n")
-    } else {
-      cat("No errors encountered during processing.\n")
-    }
-
-    # Check for warnings
-    if (any(data[, warning_msg != ""])) {
-      cat("Warnings encountered during processing:\n")
-      cat(data[data[, warning_msg != ""], .(responder, warning_msg)], sep = "\n")
-    } else {
-      cat("No warnings encountered during processing.\n")
-    }
-  }
-
-  # 使用RANSAC进行鲁棒线性回归
-  process_lmrob_results <- function(data, threshold, ...) {
-    safelmrob <- purrr::safely(.f = robustbase::lmrob)
-    temp1 <- data[, `:=`(safe_lmrob, purrr::map(data, function(df, ...) safelmrob(..., data = df), ...))
-    ][, `:=`(model_lmrob, purrr::map(safe_lmrob, function(x) x$result))
-    ][, `:=`(error_msg, purrr::map_chr(safe_lmrob, function(x) if (is.null(x$error)) "" else x$error$message))
-    ][, `:=`(warning_msg, purrr::map_chr(safe_lmrob, function(x) if (is.null(x$warning)) "" else x$warning$message))
-    ][, `:=`(residuals, purrr::pmap(list(model_lmrob, error_msg, warning_msg), function(x, e, w) {
-      if (e == "" && w == "") {return(residuals(x))} else {return(NULL)}}))
-    ][, `:=`(predict, purrr::pmap(list(model_lmrob, error_msg, warning_msg), function(x, e, w) {
-      if (e == "" && w == "") {return(predict(x))} else {return(NULL)}}))
-    ][, `:=`(mean_residual, purrr::map_dbl(residuals, mean, na.rm = TRUE))
-    ][, `:=`(sd_residual, purrr::map_dbl(residuals, sd, na.rm = TRUE))
-    ][, `:=`(outliers, purrr::pmap(list(residuals, mean_residual, sd_residual), function(r, m, sd) {
-      if (length(r) > 0) {return(abs(r - m) > threshold * sd)} else {return(NULL)}}))
-    ][]#
-    check_errors_and_warnings(temp1)
-    temp2 = temp1[, c("safe_lmrob","model_lmrob","error_msg","warning_msg","residuals","mean_residual","sd_residual") := NULL
-    ][, tidyfst::unchop_dt(.SD), .SDcol = c("data", "predict", "outliers"), by = responder]
-    return(temp2)
-  }
-
-  # Fit rlm models for each data subset
-  process_rlm_results <- function(data, threshold, ...) {
-    saferlm <- purrr::safely(.f = MASS::rlm)
-    temp1 <- data[, `:=`(safe_rlm, purrr::map(data, function(df, ...) saferlm(..., data = df), ...))
-    ][, `:=`(model_rlm, purrr::map(safe_rlm, function(x) x$result))
-    ][, `:=`(error_msg, purrr::map_chr(safe_rlm, function(x) if (is.null(x$error)) "" else x$error$message))
-    ][, `:=`(warning_msg, purrr::map_chr(safe_rlm, function(x) if (is.null(x$warning)) "" else x$warning$message))
-    ][, `:=`(predict, purrr::pmap(list(model_rlm, error_msg, warning_msg), function(x, e, w) {
-      if (e == "" && w == "") {return(predict(x))} else {return(NULL)}}))
-    ][][, `:=`(w, purrr::map(model_rlm, function(x) if (!is.null(x)) x$w else NA))
-    ][, `:=`(outliers, purrr::map(w, function(x) if (!is.null(x)) x < threshold else NA))
-    ][]
-    check_errors_and_warnings(temp1)
-    temp2 = temp1[, c("safe_rlm","model_rlm","error_msg","warning_msg") := NULL
-    ][, tidyfst::unchop_dt(.SD), .SDcol = c("data", "predict", "outliers"), by = responder]
-    return(temp2)
-
-    return(temp2)
-  }
-
-  #一般线性模型计算日增重
-  process_lm_results <- function(data, ...) {
-    safelm = purrr::safely(.f = stats::lm)
-    temp1 <- data[outliers == FALSE]
-    temp2 <- temp1[, .(data = list(.SD)), by = responder
-    ][, `:=`(safe_lm, purrr::map(data, function(df, ...) safelm(..., data = df), ...))
-    ][, `:=`(safe_lm, purrr::map(safe_lm, function(x) x$result))
-    ][, `:=`(error_msg, purrr::map_chr(safe_lm, function(x) if (is.null(x$error)) "" else x$error$message))
-    ][, `:=`(warning_msg, purrr::map_chr(safe_lm, function(x) if (is.null(x$warning)) "" else x$warning$message))
-    ][, `:=`(lm_predict, purrr::map2(safe_lm, warning_msg, function(x, w) if (w == "") stats::predict(x) else NA))
-    ][, `:=`(lm_slope, purrr::map(safe_lm, function(x) coef(x)["seq_days"]))
-    ][, `:=`(r_squared, purrr::map_dbl(safe_lm, function(x) if (!is.null(x)) summary(x)$r.squared else NA))]
-    check_errors_and_warnings(temp2)
-    temp3 <- temp2[, c("responder", "lm_slope", "r_squared")][]
-    final <- temp3 |> tidyfst::unnest_dt(lm_slope)
-    return(final)
-  }
-
-  # Create plots
-  create_plots <- function(data) {
-    data <- data[, `:=`(color_judge, data.table::fifelse(outliers == F, "Normal", "Outlier"))
-    ][, .(data = list(.SD)), location]
-
-    data[, `:=`(plot, purrr::map2(data, location, function(.x, .y) {
-      slopes_and_r_squared <- .x[, .(lm_slope = unique(lm_slope), r_squared = unique(r_squared)), by = responder]
-
-      if (!is.null(my_break)) {
-        slopes_and_r_squared[, day_diff := (my_break[2] * 1000 - my_break[1] * 1000) / lm_slope]
-        slopes_and_r_squared[, day_text := sprintf("Slope: %.2f, R^2: %.2f\n%d~%d kg: %.1f days", lm_slope, r_squared, my_break[1], my_break[2], day_diff)]
-      } else {
-        slopes_and_r_squared[, day_text := sprintf("Slope: %.2f, R^2: %.2f", lm_slope, r_squared)]
-      }
-
-      ggplot2::ggplot(data = .x, ggplot2::aes(x = date, y = weight)) +
-        ggplot2::theme_bw() +
-        ggplot2::geom_point(ggplot2::aes(col = color_judge), size = 1, na.rm = T) +
-        ggplot2::scale_color_manual(values = c(Normal = "#38b48b", Outlier = "#b81a35"), name = "robust regression") +
-        ggplot2::scale_x_date(date_breaks = "1 day", date_labels = "%m-%d") +
-        ggplot2::geom_line(ggplot2::aes(x = date, y = predict), na.rm = T) +
-        ggplot2::facet_wrap( ~ as.numeric(responder), ncol = 2) +
-        ggplot2::scale_y_continuous(breaks = seq(15000, 130000, 10000), limits = c(15000, 130000)) +
-        ggplot2::labs(title = paste("Location:", .y)) +
-        ggplot2::theme(legend.position = "bottom",
-                       legend.title = ggplot2::element_text(size = 20),
-                       legend.text = ggplot2::element_text(size = 20),
-                       axis.text.x = ggplot2::element_text(angle = -90, size = 10),
-                       plot.title = ggplot2::element_text(size = 25, face = "bold")
-        ) +
-        ggplot2::geom_hline(yintercept = 30000, linetype = "dashed", color = "#aed0ee") +
-        ggplot2::geom_hline(yintercept = 60000, linetype = "dashed", color = "#aed0ee") +
-        ggplot2::geom_hline(yintercept = 115000, linetype = "dashed", color = "#aed0ee") +
-        ggplot2::geom_text(data = slopes_and_r_squared, mapping = ggplot2::aes(label = day_text, x = min(.x$date), y = 130000, group = responder), hjust = 0, vjust = 1, size = 3)
-    }))]
-    return(data)
-  }
-
-  #看情况，最好是过滤掉异常体重数据后再截取体重
-  cut_weight <- function(data, my_break, range_offset) {
-    if (is.data.frame(data)) data <- data.table::as.data.table(data)
-
-    # 将my_break乘以1000以匹配数据中的体重表示
-    my_break <- my_break * 1000
-
-    # 使用给定的范围和范围偏移生成实际的断点
-    actual_breaks <- c(my_break[1] - range_offset * 1000, my_break[2] + range_offset * 1000)
-
-    # 选取指定范围内的体重
-    data <- data[predict >= actual_breaks[1] & predict <= actual_breaks[2], ]
-
-    # 添加stage列，用于表示选取的体重范围
-    data[, `:=`(stage, paste0(my_break[1] / 1000, "-", my_break[2] / 1000))]
-
-    return(data)
-  }
-
-  #保存图片
-  save_plots <- function(data, save_path) {
-    # 计算每个location中的responder数量和date天数
-    location_dims <- data[, .(n_responders = data.table::uniqueN(data[[1]]$responder),
-                              n_days = data.table::uniqueN(data[[1]]$date)), by = location]
-
-    # 调整图像的宽度和高度
-    adjusted_dims <- location_dims[, .(width = 0.7 * n_days, height = 6 * n_responders)]
-
-    # 保存图像
-    purrr::walk2(file.path(save_path, paste0("location_", data$location, "_growth.png")), data$plot,
-                 function(file, plot, width, height) {
-                   ggplot2::ggsave(filename = file, plot = plot, width = width, height = height, units = "cm", dpi = "retina")
-                 }, width = adjusted_dims$width, height = adjusted_dims$height)
-  }
-
-  # 函数调用
-  processed_data <- process_data(data)
-
-  if (lmrob) {
-    # 设置RANSAC参数
-    control <- robustbase::lmrob.control(tuning.chi = 1.548, k.max = 1000, maxit.scale = 1000, max.it = 1000)
-    lm_results <- process_lmrob_results(data = processed_data, threshold = threshold, weight ~ seq_days, control= control)
-  } else {
-    lm_results <- process_rlm_results(data = processed_data, threshold = threshold, weight ~ seq_days + I(seq_days^2), maxit=5000)
-  }
-
-  slopes <- process_lm_results(data = lm_results, weight ~ seq_days)
-
-  if (!is.null(my_break)) {
-    cut_data <- cut_weight(data = lm_results, my_break = my_break, range_offset = range_offset)
-    slopes_cut <- process_lm_results(data = cut_data, weight ~ seq_days)
-    final_cut <- merge(cut_data, slopes_cut, by = "responder")
-    plots_cut <- create_plots(final_cut)
-    save_plots(plots_cut, save_path)
-  } else {
-    final <- merge(lm_results, slopes, by = "responder")
-    plots <- create_plots(final)
-    save_plots(plots, save_path)
-  }
-}
-```
-
-```{r examples-growth_monitor}
-data <- data.table::fread("C:/Users/Dell/Downloads/test/ppt_test_data.csv")
-growth_monitor(data = data, save_path = "C:/Users/Dell/Downloads/test")
-```
-
 # monitor_schedule
+
+You can use `monitor_schedule` to set when to run the `fid_monitor()` and \`station_monitor()\`.
 
 ```{r function-monitor_schedule}
 #' Feed intake monitor of pig performance test station
-#' 
-#' @description
-#'
-#' `monitor_schedule()` is deprecated. We will soon be totally
 #' 
 #' @param taskname A character string with the name of the task. Defaults to the filename. Should not contain any spaces
 #' @param schedule Either one of 'ONCE', 'MONTHLY', 'WEEKLY', 'DAILY', 'HOURLY', 'MINUTE', 'ONLOGON', 'ONIDLE
@@ -681,7 +443,7 @@ growth_monitor(data = data, save_path = "C:/Users/Dell/Downloads/test")
 #'
 #' @importFrom utils "capture.output"
 #'
-#' @return CSV files in the path of save_path
+#' @return pdf and pngs
 #' @export
 #' 
 monitor_schedule <- function(taskname, schedule, starttime, startdate, rscript_args = NULL, ...) {
@@ -711,11 +473,10 @@ monitor_schedule <- function(taskname, schedule, starttime, startdate, rscript_a
   script_file <- file.path(short_temp_path, paste0(taskname, "_", sample(letters, 1), ".R"))
   
   my_function <- function(csv_path, ...) {
-    csv_files <- list.files(csv_path, full.names = T, pattern = ".csv")
+    csv_files <- list.files(csv_path, full.names = T, pattern = ".csv", recursive = T)
     csv_data <- pptos::import_csv(csv_files, package = "data.table")
     pptsdm::fid_monitor(data = csv_data, station_type = "nedap", ...)
     pptsdm::station_monitor(data = csv_data, station_type = "nedap", ...)
-    pptsdm::growth_monitor(data = csv_data, threshold = 1, ...)
   }
   
   # Save the arguments to a configuration file

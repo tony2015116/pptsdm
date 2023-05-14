@@ -51,14 +51,17 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="index.html">pptsdm</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.2</span>
       </span>
     </div>
 
     <div id="navbar" class="navbar-collapse collapse">
       <ul class="nav navbar-nav">
 <li>
-  <a href="reference/index.html">Reference</a>
+  <a href="articles/basic-usage.html">Introduction</a>
+</li>
+<li>
+  <a href="reference/index.html">Functions</a>
 </li>
 <li class="dropdown">
   <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -68,10 +71,7 @@
   </a>
   <ul class="dropdown-menu" role="menu">
 <li>
-      <a href="articles/basic-usage.html">Basic Usage</a>
-    </li>
-    <li>
-      <a href="articles/get-started.html">Get started</a>
+      <a href="articles/basic-usage.html">Get started</a>
     </li>
   </ul>
 </li>
@@ -87,7 +87,13 @@
         </li>
         
         <li>
-  <a href="https://github.com/tony2015116/pptsdm/">
+  <a href="https://twitter.com/tonyituite" class="external-link">
+    <span class="fa fa-twitter fa-lg"></span>
+     
+  </a>
+</li>
+<li>
+  <a href="https://github.com/tony2015116/pptsdm">
     <span class="fab fa-github fa-lg"></span>
      
   </a>
@@ -114,7 +120,7 @@
 </h1></div>
 <!-- badges: start -->
 <!-- badges: end -->
-<p><strong>pptsdm</strong> is an R package that enables automatic downloading of data from pig performance test stations. The package stands for ‘Pig Performance Test Station Data Download’. With pptsdd, managing test station data is made much more efficient, as the package automates the process of downloading data from these stations. This allows for a more streamlined workflow for test station data management personnel.</p>
+<p><strong>pptsdm</strong> is an R package that enables automatic monitor the stations and pigs in the pig farm which using nedap pig performance test stations.<code><a href="reference/station_monitor.html">station_monitor()</a></code> can monitor the number of pigs within a testing station, total feed intake, total visit time, total visit frequency, and overall weight condition. <code><a href="reference/fid_monitor.html">fid_monitor()</a></code> can monitor the feed intake and proportion of each pig within a single testing station.<code><a href="reference/monitor_schedule.html">monitor_schedule()</a></code> packages the previous two functions into one that can be set to monitor on a regular basis.</p>
 </div>
 <div class="section level1">
 <h1 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
@@ -122,7 +128,7 @@
 <p>You can install the development version from GitHub with:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># install.packages("devtools")</span></span>
-<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"tony2015116/pptsdd"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://remotes.r-lib.org/reference/install_github.html" class="external-link">install_github</a></span><span class="op">(</span><span class="st">"tony2015116/pptsdm"</span><span class="op">)</span></span></code></pre></div>
 </div>
 
   </div>
@@ -133,8 +139,6 @@
 <ul class="list-unstyled">
 <li><a href="https://github.com/tony2015116/pptsdm/">Browse source code</a></li>
 <li><a href="https://github.com/tony2015116/pptsdm/issues">Report a bug</a></li>
-<li><a href="https://github.com/tony2015116/pptsdd" class="external-link">Browse source code</a></li>
-<li><a href="https://github.com/tony2015116/pptsdd/issues" class="external-link">Report a bug</a></li>
 <li><a href="https://www.rusersplace.com" class="external-link">Author Website</a></li>
 </ul>
 </div>

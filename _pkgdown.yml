@@ -8,9 +8,38 @@ home:
   links:
   # - text: GitHub Repo
     # href: https://github.com/wviechtb/metafor
-  - text: Browse source code
-    href: https://github.com/tony2015116/pptsdd
-  - text: Report a bug
-    href: https://github.com/tony2015116/pptsdd/issues
+  # - text: Browse source code
+  #   href: https://github.com/tony2015116/pptsdd
+  # - text: Report a bug
+  #   href: https://github.com/tony2015116/pptsdd/issues
   - text: Author Website
     href: https://www.rusersplace.com
+
+navbar:
+  left:
+    - text: "Introduction"
+      href: articles/basic-usage.html
+    - text: "Functions"
+      href: reference/index.html
+    - text: "Articles"
+      menu:
+      - text: "Get started"
+        href: articles/basic-usage.html
+    - text: "Changelog"
+      href: news/index.html
+  right:
+    - icon: fa-twitter fa-lg
+      href: https://twitter.com/tonyituite
+    - icon: fab fa-github fa-lg
+      href: https://github.com/tony2015116/pptsdm
+
+reference:
+  - title: monitor functions
+    desc: monitor the stations and pigs
+    contents:
+      - station_monitor
+      - fid_monitor
+  - title: schedule monitor functions
+    desc: monitor stations and pigs in schedule
+    contents:
+      - monitor_schedule

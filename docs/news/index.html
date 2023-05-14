@@ -29,13 +29,16 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">pptsdm</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.2</span>
       </span>
     </div>
 
     <div id="navbar" class="navbar-collapse collapse">
       <ul class="nav navbar-nav"><li>
-  <a href="../reference/index.html">Reference</a>
+  <a href="../articles/basic-usage.html">Introduction</a>
+</li>
+<li>
+  <a href="../reference/index.html">Functions</a>
 </li>
 <li class="dropdown">
   <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -44,10 +47,7 @@
     <span class="caret"></span>
   </a>
   <ul class="dropdown-menu" role="menu"><li>
-      <a href="../articles/basic-usage.html">Basic Usage</a>
-    </li>
-    <li>
-      <a href="../articles/get-started.html">Get started</a>
+      <a href="../articles/basic-usage.html">Get started</a>
     </li>
   </ul></li>
 <li>
@@ -60,7 +60,13 @@
         </li>
         
         <li>
-  <a href="https://github.com/tony2015116/pptsdm/">
+  <a href="https://twitter.com/tonyituite" class="external-link">
+    <span class="fa fa-twitter fa-lg"></span>
+     
+  </a>
+</li>
+<li>
+  <a href="https://github.com/tony2015116/pptsdm">
     <span class="fab fa-github fa-lg"></span>
      
   </a>
@@ -84,7 +90,13 @@
 
     <div class="section level2">
 <h2 class="page-header" data-toc-text="0.1.1" id="pptsdm-011">pptsdm 0.1.1<a class="anchor" aria-label="anchor" href="#pptsdm-011"></a></h2>
-<ul><li>Added a <code>NEWS.md</code> file to track changes to the package.</li>
+<ul><li>added a <code>NEWS.md</code> file to track changes to the package.</li>
+</ul></div>
+    <div class="section level2">
+<h2 class="page-header" data-toc-text="0.1.2" id="pptsdm-012">pptsdm 0.1.2<a class="anchor" aria-label="anchor" href="#pptsdm-012"></a></h2>
+<ul><li>
+<code><a href="../reference/fid_monitor.html">fid_monitor()</a></code> and <code><a href="../reference/station_monitor.html">station_monitor()</a></code> in the <a href="https://github.com/tony2015116/pptos" class="external-link"><code>pptos</code></a> package have been reconstructed. Data processing has been optimized by utilizing data.table as much as possible, reducing unnecessary R packages, and improving the speed of function execution.</li>
+<li>added a new function <code><a href="../reference/monitor_schedule.html">monitor_schedule()</a></code> to schedule the execution of <code><a href="../reference/fid_monitor.html">fid_monitor()</a></code> and <code><a href="../reference/station_monitor.html">station_monitor()</a></code> functions, enabling timed monitoring of the data from nedap pig performance test stations.</li>
 </ul></div>
   </div>
 

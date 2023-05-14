@@ -108,6 +108,7 @@ station_monitor <- function (data, station_type, save_path)
   ][data.table::CJ(date = date, unique = TRUE), on = .(date)]})), .SDcols = "V1"
   ][, `:=`("plot1", purrr::map2(.SD[[1]], location, ~ggplot2::ggplot(data = .x, ggplot2::aes(x = date, y = weight, group = date)) +
                                   ggplot2::geom_boxplot(outlier.color = "red") +
+                                  ggplot2::scale_y_continuous(breaks = scales::pretty_breaks(n = 10)) +
                                   cowplot::background_grid(minor = "none") +
                                   ggplot2::scale_x_date(date_breaks = "1 day", date_labels = "%d") +
                                   ggplot2::theme_bw() +
@@ -147,8 +148,8 @@ station_monitor <- function (data, station_type, save_path)
   # 根据天数计算图片的长度和宽度
   # 使用 map() 遍历 V1 列中的所有列表，计算唯一日期数
   days <- purrr::map_dbl(temp9$V1, ~ length(unique(.x$date)))
-  height <- ifelse(days <= 7, 6, ifelse(days <= 14, 6, ifelse(days <= 30, 6, 6)))
-  width <- ifelse(days <= 7, 3, ifelse(days <= 14, 8, ifelse(days <= 30, 13, 16)))
+  height <- ifelse(days <= 7, 8, ifelse(days <= 14, 8, ifelse(days <= 30, 8, 8)))
+  width <- ifelse(days <= 7, 5, ifelse(days <= 14, 10, ifelse(days <= 30, 13, 16)))
 
   purrr::walk2(
     temp9$plot_name,

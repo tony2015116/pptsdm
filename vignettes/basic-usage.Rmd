@@ -39,12 +39,12 @@ Note: when you will use other flat templates, this part will be in a separate fi
 -->
 ```
 
-# Feed intake monitor of pigs
+# fid_monitor
 
-This is the first tool of our wonderful package. You can add `1` to any `value` using function `fid_monitor()`.
+You can use `fid_monitor()` to monitor the feed intake of each pig in the nedap or fire pig performance test station as well as the total feed intake of all pigs.
 
 
-```{r examples-stations_monitor}
+```{r examples-fid_monitor}
 data <- data.table::fread("C:/Users/Dell/Downloads/test/ppt_test_data.csv")
 fid_monitor(data = data, station_type = "nedap", save_path = "C:/Users/Dell/Downloads/test")
 ```
@@ -68,25 +68,18 @@ This should be a reproducible and working example
 
 # station_monitor
 
+You can use function of `station_monitor()` to monitor pig performance test data from nedap and fire pig performance test stations. This function can monitor the changes in the number of pigs, total visitation time of pigs, total number of visits, changes in total feed intake, and also monitor the changes in pig weights for a specific pig performance test station.
+
+
 ```{r examples-station_monitor}
 data <- data.table::fread("C:/Users/Dell/Downloads/test/ppt_test_data.csv")
 station_monitor(data = data, station_type = "nedap", save_path = "C:/Users/Dell/Downloads/test")
 ```
 
-This is the first tool of our wonderful package. You can add `1` to any `value` using function `station_monitor()`.
-
-
-# growth_monitor
-
-This is the first tool of our wonderful package. You can add `1` to any `value` using function `growth_monitor()`.
-
-
-```{r examples-growth_monitor}
-data <- data.table::fread("C:/Users/Dell/Downloads/test/ppt_test_data.csv")
-growth_monitor(data = data, save_path = "C:/Users/Dell/Downloads/test")
-```
-
 # monitor_schedule
+
+You can use `monitor_schedule` to set when to run the `fid_monitor()` and \`station_monitor()\`.
+
 
 ```{r examples-monitor_schedule}
 monitor_schedule(

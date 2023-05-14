@@ -2,10 +2,6 @@
 
 #' Feed intake monitor of pig performance test station
 #' 
-#' @description
-#'
-#' `monitor_schedule()` is deprecated. We will soon be totally
-#' 
 #' @param taskname A character string with the name of the task. Defaults to the filename. Should not contain any spaces
 #' @param schedule Either one of 'ONCE', 'MONTHLY', 'WEEKLY', 'DAILY', 'HOURLY', 'MINUTE', 'ONLOGON', 'ONIDLE
 #' @param starttime A timepoint in HH:mm format indicating when to run the script. Defaults to within 62 seconds
@@ -15,7 +11,7 @@
 #'
 #' @importFrom utils "capture.output"
 #'
-#' @return CSV files in the path of save_path
+#' @return pdf and pngs
 #' @export
 #' 
 #' @examples
@@ -53,11 +49,10 @@ monitor_schedule <- function(taskname, schedule, starttime, startdate, rscript_a
   script_file <- file.path(short_temp_path, paste0(taskname, "_", sample(letters, 1), ".R"))
   
   my_function <- function(csv_path, ...) {
-    csv_files <- list.files(csv_path, full.names = T, pattern = ".csv")
+    csv_files <- list.files(csv_path, full.names = T, pattern = ".csv", recursive = T)
     csv_data <- pptos::import_csv(csv_files, package = "data.table")
     pptsdm::fid_monitor(data = csv_data, station_type = "nedap", ...)
     pptsdm::station_monitor(data = csv_data, station_type = "nedap", ...)
-    pptsdm::growth_monitor(data = csv_data, threshold = 1, ...)
   }
   
   # Save the arguments to a configuration file

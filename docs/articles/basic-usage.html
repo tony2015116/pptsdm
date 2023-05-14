@@ -50,14 +50,17 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">pptsdm</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.2</span>
       </span>
     </div>
 
     <div id="navbar" class="navbar-collapse collapse">
       <ul class="nav navbar-nav">
 <li>
-  <a href="../reference/index.html">Reference</a>
+  <a href="../articles/basic-usage.html">Introduction</a>
+</li>
+<li>
+  <a href="../reference/index.html">Functions</a>
 </li>
 <li class="dropdown">
   <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -67,10 +70,7 @@
   </a>
   <ul class="dropdown-menu" role="menu">
 <li>
-      <a href="../articles/basic-usage.html">Basic Usage</a>
-    </li>
-    <li>
-      <a href="../articles/get-started.html">Get started</a>
+      <a href="../articles/basic-usage.html">Get started</a>
     </li>
   </ul>
 </li>
@@ -86,7 +86,13 @@
         </li>
         
         <li>
-  <a href="https://github.com/tony2015116/pptsdm/">
+  <a href="https://twitter.com/tonyituite" class="external-link">
+    <span class="fa fa-twitter fa-lg"></span>
+     
+  </a>
+</li>
+<li>
+  <a href="https://github.com/tony2015116/pptsdm">
     <span class="fab fa-github fa-lg"></span>
      
   </a>
@@ -135,13 +141,13 @@ Fill and run the content of this chunk, before anything else.
 Note: when you will use other flat templates, this part will be in a separate file. Do not be surprised!
 -->
 <div class="section level2">
-<h2 id="feed-intake-monitor-of-pigs">Feed intake monitor of pigs<a class="anchor" aria-label="anchor" href="#feed-intake-monitor-of-pigs"></a>
+<h2 id="fid_monitor">fid_monitor<a class="anchor" aria-label="anchor" href="#fid_monitor"></a>
 </h2>
-<p>This is the first tool of our wonderful package. You can add
-<code>1</code> to any <code>value</code> using function
-<code><a href="../reference/fid_monitor.html">fid_monitor()</a></code>.</p>
+<p>You can use <code><a href="../reference/fid_monitor.html">fid_monitor()</a></code> to monitor the feed intake of
+each pig in the nedap or fire pig performance test station as well as
+the total feed intake of all pigs.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">data</span> <span class="op">&lt;-</span> <span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://Rdatatable.gitlab.io/data.table/reference/fread.html" class="external-link">fread</a></span><span class="op">(</span><span class="st">"C:/Users/Dell/Downloads/test/ppt_test_data.csv"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">data</span> <span class="op">&lt;-</span> <span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/data.table/man/fread.html" class="external-link">fread</a></span><span class="op">(</span><span class="st">"C:/Users/Dell/Downloads/test/ppt_test_data.csv"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/fid_monitor.html">fid_monitor</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">data</span>, station_type <span class="op">=</span> <span class="st">"nedap"</span>, save_path <span class="op">=</span> <span class="st">"C:/Users/Dell/Downloads/test"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Warning: Removed 1 rows containing missing values (`geom_col()`).</span></span></code></pre></div>
 <!-- 
@@ -159,31 +165,22 @@ This should be a reproducible and working example
 <div class="section level2">
 <h2 id="station_monitor">station_monitor<a class="anchor" aria-label="anchor" href="#station_monitor"></a>
 </h2>
+<p>You can use function of <code><a href="../reference/station_monitor.html">station_monitor()</a></code> to monitor pig
+performance test data from nedap and fire pig performance test stations.
+This function can monitor the changes in the number of pigs, total
+visitation time of pigs, total number of visits, changes in total feed
+intake, and also monitor the changes in pig weights for a specific pig
+performance test station.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">data</span> <span class="op">&lt;-</span> <span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://Rdatatable.gitlab.io/data.table/reference/fread.html" class="external-link">fread</a></span><span class="op">(</span><span class="st">"C:/Users/Dell/Downloads/test/ppt_test_data.csv"</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">data</span> <span class="op">&lt;-</span> <span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/data.table/man/fread.html" class="external-link">fread</a></span><span class="op">(</span><span class="st">"C:/Users/Dell/Downloads/test/ppt_test_data.csv"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/station_monitor.html">station_monitor</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">data</span>, station_type <span class="op">=</span> <span class="st">"nedap"</span>, save_path <span class="op">=</span> <span class="st">"C:/Users/Dell/Downloads/test"</span><span class="op">)</span></span></code></pre></div>
-<p>This is the first tool of our wonderful package. You can add
-<code>1</code> to any <code>value</code> using function
-<code><a href="../reference/station_monitor.html">station_monitor()</a></code>.</p>
-</div>
-<div class="section level2">
-<h2 id="growth_monitor">growth_monitor<a class="anchor" aria-label="anchor" href="#growth_monitor"></a>
-</h2>
-<p>This is the first tool of our wonderful package. You can add
-<code>1</code> to any <code>value</code> using function
-<code><a href="../reference/growth_monitor.html">growth_monitor()</a></code>.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">data</span> <span class="op">&lt;-</span> <span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://Rdatatable.gitlab.io/data.table/reference/fread.html" class="external-link">fread</a></span><span class="op">(</span><span class="st">"C:/Users/Dell/Downloads/test/ppt_test_data.csv"</span><span class="op">)</span></span>
-<span><span class="fu"><a href="../reference/growth_monitor.html">growth_monitor</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">data</span>, save_path <span class="op">=</span> <span class="st">"C:/Users/Dell/Downloads/test"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; No errors encountered during processing.</span></span>
-<span><span class="co">#&gt; No warnings encountered during processing.</span></span>
-<span><span class="co">#&gt; No errors encountered during processing.</span></span>
-<span><span class="co">#&gt; No warnings encountered during processing.</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="monitor_schedule">monitor_schedule<a class="anchor" aria-label="anchor" href="#monitor_schedule"></a>
 </h2>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<p>You can use <code>monitor_schedule</code> to set when to run the
+<code><a href="../reference/fid_monitor.html">fid_monitor()</a></code> and `station_monitor()`.</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/monitor_schedule.html">monitor_schedule</a></span><span class="op">(</span></span>
 <span>  taskname <span class="op">=</span> <span class="st">"ppt_csv_monitor"</span>,</span>
 <span>  schedule <span class="op">=</span> <span class="st">"DAILY"</span>,</span>
