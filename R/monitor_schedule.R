@@ -20,7 +20,8 @@
 #'   schedule = "DAILY",
 #'   starttime = "10:05",
 #'   startdate = format(Sys.Date(), "%Y/%m/%d"),
-#'   rscript_args = list(csv_path = "C:/Users/Dell/Downloads/test",
+#'   rscript_args = list(begin_date = "2023-05-01", 
+#'                       csv_path = "C:/Users/Dell/Downloads/test",
 #'                       save_path = "C:/Users/Dell/Downloads/test"))
 monitor_schedule <- function(taskname, schedule, starttime, startdate, rscript_args = NULL, ...) {
   if (missing(taskname) || !is.character(taskname) || length(taskname) != 1) {

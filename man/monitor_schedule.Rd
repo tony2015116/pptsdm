@@ -38,6 +38,7 @@ monitor_schedule(
   schedule = "DAILY",
   starttime = "10:05",
   startdate = format(Sys.Date(), "\%Y/\%m/\%d"),
-  rscript_args = list(csv_path = "C:/Users/Dell/Downloads/test",
+  rscript_args = list(begin_date = "2023-05-01", 
+                      csv_path = "C:/Users/Dell/Downloads/test",
                       save_path = "C:/Users/Dell/Downloads/test"))
 }

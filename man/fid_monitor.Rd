@@ -4,17 +4,19 @@
 \alias{fid_monitor}
 \title{Feed intake monitor of pig performance test station}
 \usage{
-fid_monitor(data, station_type, save_path)
+fid_monitor(data, begin_date = NULL, station_type, save_path)
 }
 \arguments{
-\item{data}{Csv data of pig performance test station}
+\item{data}{A data frame or data table containing the nedap or fire pig performance test data to be processed. Columns must include 'visit_time', 'location', 'responder', 'feed_intake'.}
 
-\item{station_type}{Type of pig performance test station, you can choose nedap or fire}
+\item{begin_date}{An optional Date object or character string specifying the beginning date for the data to be processed. If not provided, all dates in the data will be considered.}
 
-\item{save_path}{A string specifying the output file path}
+\item{station_type}{A character string specifying the type of station. This must be either 'nedap' or 'fire'.}
+
+\item{save_path}{A character string specifying the path where the output PDF will be saved.}
 }
 \value{
-A pdf file about feed intake data monitor
+This function does not return a value. It saves a PDF file to the specified path.
 }
 \description{
 Feed intake monitor of pig performance test station

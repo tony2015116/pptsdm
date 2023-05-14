@@ -4,17 +4,19 @@
 \alias{station_monitor}
 \title{Feed intake monitor of pig performance test station}
 \usage{
-station_monitor(data, station_type, save_path)
+station_monitor(data, begin_date = NULL, station_type, save_path)
 }
 \arguments{
-\item{data}{Csv data of pig performance test station}
+\item{data}{A data frame or data table. This is the data to be processed. It should have specific columns depending on the station type.}
 
-\item{station_type}{Type of pig performance test station, you can choose nedap or fire}
+\item{begin_date}{An optional parameter. If provided, only data from this date onwards will be considered. It can be a Date object or a character string in the form 'yyyy-mm-dd'. Default is NULL, which means all dates in the data will be considered.}
 
-\item{save_path}{A string specifying the output file path}
+\item{station_type}{A character string specifying the type of station. This must be either 'nedap' or 'fire'.}
+
+\item{save_path}{A character string specifying the path where the output PNG files will be saved.}
 }
 \value{
-png files about stations monitor
+This function does not return a value. It saves PNG files to the specified path.
 }
 \description{
 Feed intake monitor of pig performance test station

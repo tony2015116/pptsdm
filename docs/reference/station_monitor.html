@@ -94,33 +94,37 @@
     </div>
 
     <div id="ref-usage">
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">station_monitor</span><span class="op">(</span><span class="va">data</span>, <span class="va">station_type</span>, <span class="va">save_path</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">station_monitor</span><span class="op">(</span><span class="va">data</span>, begin_date <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">station_type</span>, <span class="va">save_path</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div id="arguments">
     <h2>Arguments</h2>
     <dl><dt>data</dt>
-<dd><p>Csv data of pig performance test station</p></dd>
+<dd><p>A data frame or data table. This is the data to be processed. It should have specific columns depending on the station type.</p></dd>
+
+
+<dt>begin_date</dt>
+<dd><p>An optional parameter. If provided, only data from this date onwards will be considered. It can be a Date object or a character string in the form 'yyyy-mm-dd'. Default is NULL, which means all dates in the data will be considered.</p></dd>
 
 
 <dt>station_type</dt>
-<dd><p>Type of pig performance test station, you can choose nedap or fire</p></dd>
+<dd><p>A character string specifying the type of station. This must be either 'nedap' or 'fire'.</p></dd>
 
 
 <dt>save_path</dt>
-<dd><p>A string specifying the output file path</p></dd>
+<dd><p>A character string specifying the path where the output PNG files will be saved.</p></dd>
 
 </dl></div>
     <div id="value">
     <h2>Value</h2>
     
 
-<p>png files about stations monitor</p>
+<p>This function does not return a value. It saves PNG files to the specified path.</p>
     </div>
 
     <div id="ref-examples">
     <h2>Examples</h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="va">data</span> <span class="op">&lt;-</span> <span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/data.table/man/fread.html" class="external-link">fread</a></span><span class="op">(</span><span class="st">"C:/Users/Dell/Downloads/test/ppt_test_data.csv"</span><span class="op">)</span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="va">data</span> <span class="op">&lt;-</span> <span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://Rdatatable.gitlab.io/data.table/reference/fread.html" class="external-link">fread</a></span><span class="op">(</span><span class="st">"C:/Users/Dell/Downloads/test/ppt_test_data.csv"</span><span class="op">)</span></span>
 <span><span class="fu">station_monitor</span><span class="op">(</span>data <span class="op">=</span> <span class="va">data</span>, station_type <span class="op">=</span> <span class="st">"nedap"</span>, save_path <span class="op">=</span> <span class="st">"C:/Users/Dell/Downloads/test"</span><span class="op">)</span></span></code></pre></div>
     </div>
   </div>
