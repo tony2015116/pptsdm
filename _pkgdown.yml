@@ -32,6 +32,8 @@ navbar:
     #   href: https://twitter.com/tonyituite
     - icon: fab fa-github fa-lg
       href: https://github.com/tony2015116/pptsdm
+    - icon: fa fa-signal fa-lg
+      href: https://tony2015116.gitee.io/pptsdm
 
 reference:
   - title: monitor functions
