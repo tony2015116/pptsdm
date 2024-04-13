@@ -22,6 +22,8 @@ This function does not return a value. It saves PNG files to the specified path.
 Feed intake monitor of pig performance test station
 }
 \examples{
-data <- data.table::fread("C:/Users/Dell/Downloads/test/ppt_test_data.csv")
+# Load CSV data
+data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
+# Station monitor
 station_monitor(data = data, station_type = "nedap", save_path = "C:/Users/Dell/Downloads/test")
 }

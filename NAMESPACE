@@ -2,7 +2,10 @@
 
 export(fid_monitor)
 export(monitor_schedule)
+export(other_monitor)
 export(station_monitor)
+import(data.table)
+import(openxlsx)
 importFrom(data.table,".SD")
 importFrom(data.table,":=")
 importFrom(data.table,"CJ")

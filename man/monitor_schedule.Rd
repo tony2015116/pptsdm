@@ -33,12 +33,16 @@ pdf and pngs
 Feed intake monitor of pig performance test station
 }
 \examples{
+# Set monitor task
 monitor_schedule(
   taskname = "ppt_csv_monitor",
   schedule = "DAILY",
   starttime = "10:05",
   startdate = format(Sys.Date(), "\%Y/\%m/\%d"),
-  rscript_args = list(begin_date = "2023-05-01", 
-                      csv_path = "C:/Users/Dell/Downloads/test",
+  rscript_args = list(house_width = "1", 
+                      begin_date = "2024-04-01", 
+                      csv_path = "C:/Users/Dell/Documents/projects/pptsdm_data/test_data",
                       save_path = "C:/Users/Dell/Downloads/test"))
+# Delete monitor task
+taskscheduleR::taskscheduler_delete("ppt_csv_monitor")
 }
