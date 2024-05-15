@@ -4,8 +4,8 @@ station_pig_monitor.Rmd:
   R:
   - R/fid_monitor.R
   - R/monitor_schedule.R
-  - R/other_monitor.R
   - R/station_monitor.R
+  - R/table_monitor.R
   tests: []
   vignettes: vignettes/basic-usage.Rmd
   inflate:

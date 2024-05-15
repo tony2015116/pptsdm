@@ -129,7 +129,7 @@
 <!-- <picture><source srcset="reference/figures/apple-touch-icon-120x120.png" media="(prefers-color-scheme: dark)"></picture> -->
 <!-- badges: start -->
 
-<p><strong>pptsdm</strong> is an R package that enables automatic monitor the stations and pigs in the pig farm which using nedap pig performance test stations.<code><a href="reference/station_monitor.html">station_monitor()</a></code> can monitor the number of pigs within a testing station, total feed intake, total visit time, total visit frequency, and overall weight condition. <code><a href="reference/fid_monitor.html">fid_monitor()</a></code> can monitor the feed intake and proportion of each pig within a single testing station.<code><a href="reference/monitor_schedule.html">monitor_schedule()</a></code> packages the previous two functions into one that can be set to monitor on a regular basis.</p>
+<p><strong>pptsdm</strong> is an R package that enables automatic monitor the stations and pigs in the pig farm which using nedap pig performance test stations.<code><a href="reference/station_monitor.html">station_monitor()</a></code> can monitor the number of pigs within a testing station, total feed intake, total visit time, total visit frequency, and overall weight condition. <code><a href="reference/fid_monitor.html">fid_monitor()</a></code> can monitor the feed intake and proportion of each pig within a single testing station.<code><a href="reference/table_monitor.html">table_monitor()</a></code> can monitor several informations in table fromat.<code><a href="reference/monitor_schedule.html">monitor_schedule()</a></code> packages the previous two functions into one that can be set to monitor on a regular basis.</p>
 </div>
 <div class="section level1">
 <h1 id="installation">Installation<a class="anchor" aria-label="anchor" href="#installation"></a>
@@ -163,7 +163,7 @@
 <span><span class="fu"><a href="reference/station_monitor.html">station_monitor</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">csv_data</span>, station_type <span class="op">=</span> <span class="st">"nedap"</span>, save_path <span class="op">=</span> <span class="st">"C:/Users/Dell/Downloads/test"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Monitor station and data</span></span>
-<span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu"><a href="reference/other_monitor.html">other_monitor</a></span><span class="op">(</span>data <span class="op">=</span> <span class="va">data</span>, house_width <span class="op">=</span> <span class="st">"1"</span>, save_path <span class="op">=</span> <span class="st">"C:/Users/Dell/Downloads/test"</span><span class="op">)</span></span>
+<span><span class="va">res</span> <span class="op">&lt;-</span> <span class="fu">other_monitor</span><span class="op">(</span>data <span class="op">=</span> <span class="va">data</span>, house_width <span class="op">=</span> <span class="st">"1"</span>, save_path <span class="op">=</span> <span class="st">"C:/Users/Dell/Downloads/test"</span><span class="op">)</span></span>
 <span><span class="co">## Monitor the number of times 'na' appears in the last 7 days</span></span>
 <span><span class="va">res</span><span class="op">$</span><span class="va">responder_na</span></span>
 <span><span class="co">## Monitor the percentage of extreme weight records in the last 7 days</span></span>
@@ -176,6 +176,13 @@
 <span><span class="va">res</span><span class="op">$</span><span class="va">mean_feedintake</span></span>
 <span><span class="co">## Monitor the average weight per pen over the last 7 days</span></span>
 <span><span class="va">res</span><span class="op">$</span><span class="va">house_weight</span></span>
+<span><span class="co"># Monitor visit time in each hour over the last 1 day.</span></span>
+<span><span class="va">res</span><span class="op">$</span><span class="va">visit_n</span></span>
+<span><span class="co"># Monitor feed intake time in each hour over the last 1 day.</span></span>
+<span><span class="va">res</span><span class="op">$</span><span class="va">feed_time</span></span>
+<span><span class="co"># Monitor feed intake in each hour over the last 1 day.</span></span>
+<span><span class="va">res</span><span class="op">$</span><span class="va">feed_intake</span></span>
+<span></span>
 <span></span>
 <span><span class="co"># Set monitor task</span></span>
 <span><span class="fu"><a href="reference/monitor_schedule.html">monitor_schedule</a></span><span class="op">(</span></span>
@@ -184,7 +191,8 @@
 <span>  starttime <span class="op">=</span> <span class="st">"10:05"</span>,</span>
 <span>  startdate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/format.html" class="external-link">format</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.Date</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"%Y/%m/%d"</span><span class="op">)</span>,</span>
 <span>  rscript_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>house_width <span class="op">=</span> <span class="st">"1"</span>, </span>
-<span>                      begin_date <span class="op">=</span> <span class="st">"2024-04-01"</span>, </span>
+<span>                      days <span class="op">=</span> <span class="fl">7</span>,</span>
+<span>                      begin_date <span class="op">=</span> <span class="st">"2024-05-01"</span>, </span>
 <span>                      csv_path <span class="op">=</span> <span class="st">"path/to/csv/data"</span>,</span>
 <span>                      save_path <span class="op">=</span> <span class="st">"C:/Users/Dell/Downloads/test"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co"># Delete monitor task</span></span>

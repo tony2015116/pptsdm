@@ -22,6 +22,7 @@ Imports:
     purrr,
     rstatix,
     scales,
+    stats,
     taskscheduleR,
     tidyr,
     utils

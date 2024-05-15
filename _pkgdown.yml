@@ -41,7 +41,7 @@ reference:
     contents:
       - station_monitor
       - fid_monitor
-      - other_monitor
+      - table_monitor
   - title: schedule monitor functions
     desc: monitor stations and pigs in schedule
     contents:

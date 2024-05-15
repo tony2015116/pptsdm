@@ -80,16 +80,16 @@ data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_moni
 station_monitor(data = data, station_type = "nedap", save_path = "C:/Users/Dell/Downloads/test")
 ```
 
-# other_monitor
+# table_monitor
 
-\`other_monitor\` serves as a complement to two other monitoring functions. It primarily aims to analyze and monitor, based on the CSV data from the past seven days of measurement stations, the daily counts of missing records, extreme weight recordings, total feeding time at each measurement station, total feeding amount per pen per day, and average weight per pen per day.
+\`table_monitor\` serves as a complement to two other monitoring functions. It primarily aims to analyze and monitor, based on the CSV data from the past n days of measurement stations, the daily counts of missing records, extreme weight recordings, total feeding time at each measurement station, total feeding amount per pen per day, average weight per pen per day, and feed intake information in each hour.
 
 
-```{r examples-other_monitor}
+```{r examples-table_monitor}
 # Load CSV data
-data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
+data <- data.table::fread("C:/Users/Dell/Desktop/test/monitor_test_data.csv")
 # Monitor station and data
-res <- other_monitor(data = data, house_width = "1", save_path = "C:/Users/Dell/Downloads/test")
+res <- table_monitor(data = data, save_path = "C:/Users/Dell/Desktop/test")
 # Monitor the number of times 'na' appears in the last 7 days
 res$responder_na
 # Monitor the percentage of extreme weight records in the last 7 days
@@ -102,11 +102,17 @@ res$all_feedintake
 res$mean_feedintake
 # Monitor the average weight per pen over the last 7 days
 res$house_weight
+# Monitor visit time in each hour over the last 1 day.
+res$visit_n
+# Monitor feed intake time in each hour over the last 1 day.
+res$feed_time
+# Monitor feed intake in each hour over the last 1 day.
+res$feed_intake
 ```
 
 # monitor_schedule
 
-You can use `monitor_schedule` to set when to run the `fid_monitor()`、\`station_monitor()`and`\`other_monitor()\`.
+You can use `monitor_schedule` to set when to run the `fid_monitor()`、`station_monitor()` and `table_monitor()`.
 
 
 ```{r examples-monitor_schedule}
@@ -117,9 +123,10 @@ monitor_schedule(
   starttime = "10:05",
   startdate = format(Sys.Date(), "%Y/%m/%d"),
   rscript_args = list(house_width = "1", 
-                      begin_date = "2024-04-01", 
-                      csv_path = "C:/Users/Dell/Documents/projects/pptsdm_data/test_data",
-                      save_path = "C:/Users/Dell/Downloads/test"))
+                      days = 7,
+                      begin_date = "2024-05-01", 
+                      csv_path = "C:/Users/Dell/Desktop/test/NonEmptyCSVs",
+                      save_path = "C:/Users/Dell/Desktop/test"))
 # Delete monitor task
 taskscheduleR::taskscheduler_delete("ppt_csv_monitor")
 ```

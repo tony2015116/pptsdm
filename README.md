@@ -7,7 +7,7 @@
 [![GitHub last commit](https://img.shields.io/github/last-commit/tony2015116/pptsdm)](#)
 <!-- badges: end -->
 
-**pptsdm** is an R package that enables automatic monitor the stations and pigs in the pig farm which using nedap pig performance test stations.`station_monitor()` can monitor the number of pigs within a testing station, total feed intake, total visit time, total visit frequency, and overall weight condition. `fid_monitor()` can monitor the feed intake and proportion of each pig within a single testing station.`monitor_schedule()` packages the previous two functions into one that can be set to monitor on a regular basis.
+**pptsdm** is an R package that enables automatic monitor the stations and pigs in the pig farm which using nedap pig performance test stations.`station_monitor()` can monitor the number of pigs within a testing station, total feed intake, total visit time, total visit frequency, and overall weight condition. `fid_monitor()` can monitor the feed intake and proportion of each pig within a single testing station.`table_monitor()` can monitor several informations in table fromat.`monitor_schedule()` packages the previous two functions into one that can be set to monitor on a regular basis.
 
 # Installation
 You can install the development version from GitHub with:
@@ -53,6 +53,13 @@ res$all_feedintake
 res$mean_feedintake
 ## Monitor the average weight per pen over the last 7 days
 res$house_weight
+# Monitor visit time in each hour over the last 1 day.
+res$visit_n
+# Monitor feed intake time in each hour over the last 1 day.
+res$feed_time
+# Monitor feed intake in each hour over the last 1 day.
+res$feed_intake
+
 
 # Set monitor task
 monitor_schedule(
@@ -61,7 +68,8 @@ monitor_schedule(
   starttime = "10:05",
   startdate = format(Sys.Date(), "%Y/%m/%d"),
   rscript_args = list(house_width = "1", 
-                      begin_date = "2024-04-01", 
+                      days = 7,
+                      begin_date = "2024-05-01", 
                       csv_path = "path/to/csv/data",
                       save_path = "C:/Users/Dell/Downloads/test"))
 # Delete monitor task
