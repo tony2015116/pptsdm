@@ -203,7 +203,7 @@ table_monitor <- function(data, house_width = "1", days = 7, save_path) {
   }
 
   # Save the xlsx file
-  openxlsx::saveWorkbook(wb, file.path(save_path, "other_monitor.xlsx"), overwrite = TRUE)
+  openxlsx::saveWorkbook(wb, file.path(save_path, "table_monitor.xlsx"), overwrite = TRUE)
 
   return(all_monitor)
 }

@@ -13,7 +13,6 @@ Store every call to library() that you need to run chunks line by line, as in a 
 -->
 ```
 ```{r development, include=FALSE}
-utils::globalVariables(c("..mean_cols", "..numeric_columns", "..sum_n_cols")
 library(data.table)
 library(ggplot2)
 library(tidyfst)
@@ -655,7 +654,7 @@ table_monitor <- function(data, house_width = "1", days = 7, save_path) {
   }
 
   # Save the xlsx file
-  openxlsx::saveWorkbook(wb, file.path(save_path, "other_monitor.xlsx"), overwrite = TRUE)
+  openxlsx::saveWorkbook(wb, file.path(save_path, "table_monitor.xlsx"), overwrite = TRUE)
 
   return(all_monitor)
 }
