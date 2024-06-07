@@ -11,3 +11,6 @@
 
 * add new function `other_monitor()`. This function primarily aims to analyze and monitor, based on the CSV data from the past seven days of measurement stations, the daily counts of missing records, extreme weight recordings, total feeding time at each measurement station, total feeding amount per pen per day, and average weight per pen per day.
 * change `other_monitor()` to `table_monitor()`, add one function in table_monitor to monitor visit, feed intake time and feed intake informations in each hour over last day.
+
+# pptsdm 0.1.4
+* Extract the individual functions that make up `table_monitor()` to allow for more flexible monitoring.

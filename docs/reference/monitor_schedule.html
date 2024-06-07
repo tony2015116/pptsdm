@@ -29,7 +29,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">pptsdm</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.3</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">0.1.4</span>
       </span>
     </div>
 
@@ -40,16 +40,6 @@
 <li>
   <a href="../reference/index.html">Functions</a>
 </li>
-<li class="dropdown">
-  <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-    Articles
-     
-    <span class="caret"></span>
-  </a>
-  <ul class="dropdown-menu" role="menu"><li>
-      <a href="../articles/basic-usage.html">Get started</a>
-    </li>
-  </ul></li>
 <li>
   <a href="../news/index.html">Changelog</a>
 </li>
@@ -134,7 +124,7 @@
     <h2>Value</h2>
     
 
-<p>pdf and pngs</p>
+<p>pdf, pngs and excels</p>
     </div>
 
     <div id="ref-examples">
@@ -146,10 +136,11 @@
 <span class="r-in"><span>  starttime <span class="op">=</span> <span class="st">"10:05"</span>,</span></span>
 <span class="r-in"><span>  startdate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/format.html" class="external-link">format</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.Date</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"%Y/%m/%d"</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>  rscript_args <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>house_width <span class="op">=</span> <span class="st">"1"</span>, </span></span>
-<span class="r-in"><span>                      days <span class="op">=</span> <span class="fl">7</span>,</span></span>
+<span class="r-in"><span>                      days <span class="op">=</span> <span class="fl">5</span>,</span></span>
+<span class="r-in"><span>                      ref_date <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.Date</a></span><span class="op">(</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>                      begin_date <span class="op">=</span> <span class="st">"2024-05-01"</span>, </span></span>
-<span class="r-in"><span>                      csv_path <span class="op">=</span> <span class="st">"C:/Users/Dell/Desktop/test/NonEmptyCSVs"</span>,</span></span>
-<span class="r-in"><span>                      save_path <span class="op">=</span> <span class="st">"C:/Users/Dell/Desktop/test"</span><span class="op">)</span><span class="op">)</span></span></span>
+<span class="r-in"><span>                      csv_path <span class="op">=</span> <span class="st">"C:/Users/Dell/Documents/projects/pptsdm_data"</span>,</span></span>
+<span class="r-in"><span>                      save_path <span class="op">=</span> <span class="st">"C:/Users/Dell/Downloads/test"</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] "SUCCESS: The scheduled task \"ppt_csv_monitor\" has successfully been created."</span>
 <span class="r-in"><span><span class="co"># Delete monitor task</span></span></span>
 <span class="r-in"><span><span class="fu">taskscheduleR</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/taskscheduleR/man/taskscheduler_delete.html" class="external-link">taskscheduler_delete</a></span><span class="op">(</span><span class="st">"ppt_csv_monitor"</span><span class="op">)</span></span></span>

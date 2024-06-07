@@ -80,6 +80,139 @@ data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_moni
 station_monitor(data = data, station_type = "nedap", save_path = "C:/Users/Dell/Downloads/test")
 ```
 
+# process_data
+
+    
+
+  
+
+```{r example-process_data}
+# Load CSV data
+data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
+processed_data <- process_data(data = data)
+head(processed_data)
+```
+
+  
+  
+
+# house_weight
+
+    
+
+  
+
+```{r example-house_weight}
+# Load CSV data
+data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
+head(house_weight(data = data, days = 5))
+```
+
+  
+
+# responder_na
+
+    
+
+  
+
+```{r example-responder_na}
+# Load CSV data
+data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
+print(responder_na(data = data, days = 5))
+```
+
+  
+
+# extreme_time_n
+
+    
+
+  
+
+```{r example-extreme_time_n}
+# Load CSV data
+data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
+print(extreme_time_n(data = data, days = 5))
+```
+
+  
+  
+
+# low_feedintake
+
+    
+
+  
+
+```{r example-low_feedintake}
+# Load CSV data
+data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
+print(low_feedintake(data = data, days = 5))
+```
+
+  
+
+# all_feedintake
+
+    
+
+  
+
+```{r example-all_feedintake}
+# Load CSV data
+data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
+print(all_feedintake(data = data, days = 5))
+```
+
+  
+
+# number_location
+
+    
+
+  
+
+```{r example-number_location}
+# Load CSV data
+data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
+print(number_location(data = data, house_width = "1", days = 5))
+```
+
+  
+
+# house_feedintake
+
+    
+
+  
+
+```{r example-house_feedintake}
+# Load CSV data
+data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
+print(house_feedintake(data = data, house_width = "1", days = 5))
+```
+
+  
+    
+
+  
+
+# hour_stat
+
+    
+
+  
+
+```{r example-hour_stat}
+# Load CSV data
+data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
+print(hour_stat(data = data))
+```
+
+  
+  
+
 # table_monitor
 
 \`table_monitor\` serves as a complement to two other monitoring functions. It primarily aims to analyze and monitor, based on the CSV data from the past n days of measurement stations, the daily counts of missing records, extreme weight recordings, total feeding time at each measurement station, total feeding amount per pen per day, average weight per pen per day, and feed intake information in each hour.
@@ -87,27 +220,29 @@ station_monitor(data = data, station_type = "nedap", save_path = "C:/Users/Dell/
 
 ```{r examples-table_monitor}
 # Load CSV data
-data <- data.table::fread("C:/Users/Dell/Desktop/test/monitor_test_data.csv")
+data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
 # Monitor station and data
-res <- table_monitor(data = data, save_path = "C:/Users/Dell/Desktop/test")
-# Monitor the number of times 'na' appears in the last 7 days
-res$responder_na
-# Monitor the percentage of extreme weight records in the last 7 days
-res$extreme_weight
-# Monitor the visiting time and frequency of pigs in the last 7 days
-res$feed_time_n
-# Monitor the total feed intake over the last 7 days
-res$all_feedintake
-# Monitor the average feed intake over the last 7 days
-res$mean_feedintake
-# Monitor the average weight per pen over the last 7 days
-res$house_weight
+res <- table_monitor(data = data, days = 5, save_path = "C:/Users/Dell/Downloads/test")
+# Monitor the number of times 'na' appears in the last n days
+head(res$responder_na)
+# Monitor the percentage of extreme weight records in the last n days
+head(res$extreme_weight)
+# Monitor the visiting time and frequency of pigs in the last n days
+head(res$feed_time_n)
+# Monitor the low feedintake over the last n days
+head(res$low_feedintake)
+# Monitor the total feed intake over the last n days
+head(res$all_feedintake)
+# Monitor the average feed intake over the last n days
+head(res$mean_feedintake)
+# Monitor the average weight per pen over the last n days
+head(res$house_weight)
 # Monitor visit time in each hour over the last 1 day.
-res$visit_n
+head(res$visit_n_hour)
 # Monitor feed intake time in each hour over the last 1 day.
-res$feed_time
+head(res$feed_time_hour)
 # Monitor feed intake in each hour over the last 1 day.
-res$feed_intake
+head(res$feed_intake_hour)
 ```
 
 # monitor_schedule
@@ -123,15 +258,19 @@ monitor_schedule(
   starttime = "10:05",
   startdate = format(Sys.Date(), "%Y/%m/%d"),
   rscript_args = list(house_width = "1", 
-                      days = 7,
+                      days = 5,
+                      ref_date = Sys.Date(),
                       begin_date = "2024-05-01", 
-                      csv_path = "C:/Users/Dell/Desktop/test/NonEmptyCSVs",
-                      save_path = "C:/Users/Dell/Desktop/test"))
+                      csv_path = "C:/Users/Dell/Documents/projects/pptsdm_data",
+                      save_path = "C:/Users/Dell/Downloads/test"))
 # Delete monitor task
 taskscheduleR::taskscheduler_delete("ppt_csv_monitor")
 ```
 
 That's it ! This the end of the documented story of our package. All components are there.
+
+
+
 
 
 ```{=html}

@@ -2,46 +2,83 @@
 % Please edit documentation in R/table_monitor.R
 \name{table_monitor}
 \alias{table_monitor}
-\title{Table feed intake monitor of pig performance test station}
+\title{Table Monitor Function}
 \usage{
-table_monitor(data, house_width = "1", days = 7, save_path)
+table_monitor(
+  data,
+  house_width = "1",
+  days = 5,
+  ref_date = Sys.Date(),
+  save_path
+)
 }
 \arguments{
-\item{data}{A data frame or data table. This is the data to be processed. It should have specific columns depending on the station type.}
+\item{data}{data.frame, required.
+The input data frame containing the data to be processed.}
 
-\item{house_width}{A character or numeric value specifying the width of the house number.If numeric, it will be converted to a character string. default house_width is 1.}
+\item{house_width}{character, optional.
+A character string representing the house width. Default is "1".}
 
-\item{days}{Days you can choose to monitor latest n days data, default days is 7.}
+\item{days}{integer, optional.
+An integer representing the number of days for the analysis. Default is 7.}
 
-\item{save_path}{A character string specifying the path where the output PNG files will be saved.}
+\item{ref_date}{Date, optional.
+A Date object representing the reference date. Default is the current date
+(\code{Sys.Date()}).}
+
+\item{save_path}{character, required.
+A character string representing the path where the Excel file will be saved.
+Must be a non-empty string ending with ".xlsx".}
 }
 \value{
-A list of data.tables, each representing different aspects of station monitoring results. This list is also saved to an Excel file at the specified \code{save_path}.
+A list containing various monitoring statistics:
+\itemize{
+\item \code{responder_na}: Data frame with responder NA statistics.
+\item \code{extreme_weight}: Data frame with extreme weight outlier statistics.
+\item \code{feed_time_n}: Data frame with feed time statistics.
+\item \code{low_feedintake}: Data frame with low feed intake statistics.
+\item \code{all_feedintake}: Data frame with all feed intake statistics.
+\item \code{mean_feedintake}: Data frame with mean feed intake statistics.
+\item \code{house_weight}: Data frame with house weight statistics.
+\item \code{visit_n_hour}: Data frame with the number of visits per hour.
+\item \code{feed_time_hour}: Data frame with feed time per hour.
+\item \code{feed_intake_hour}: Data frame with feed intake per hour.
+}
 }
 \description{
-Table feed intake monitor of pig performance test station
+The \code{table_monitor} function processes input data and generates an Excel workbook
+with various monitoring statistics and conditional formatting. It is designed for
+analyzing and visualizing data related to house monitoring, feed intake, and other
+relevant metrics over a specified period.
+}
+\note{
+The \code{save_path} parameter must be a valid path ending with ".xlsx". Ensure that
+the \code{data} parameter is a data frame and contains the necessary columns for
+processing.
 }
 \examples{
 # Load CSV data
-data <- data.table::fread("C:/Users/Dell/Desktop/test/monitor_test_data.csv")
+data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
 # Monitor station and data
-res <- table_monitor(data = data, save_path = "C:/Users/Dell/Desktop/test")
-# Monitor the number of times 'na' appears in the last 7 days
-res$responder_na
-# Monitor the percentage of extreme weight records in the last 7 days
-res$extreme_weight
-# Monitor the visiting time and frequency of pigs in the last 7 days
-res$feed_time_n
-# Monitor the total feed intake over the last 7 days
-res$all_feedintake
-# Monitor the average feed intake over the last 7 days
-res$mean_feedintake
-# Monitor the average weight per pen over the last 7 days
-res$house_weight
+res <- table_monitor(data = data, days = 5, save_path = "C:/Users/Dell/Downloads/test")
+# Monitor the number of times 'na' appears in the last n days
+head(res$responder_na)
+# Monitor the percentage of extreme weight records in the last n days
+head(res$extreme_weight)
+# Monitor the visiting time and frequency of pigs in the last n days
+head(res$feed_time_n)
+# Monitor the low feedintake over the last n days
+head(res$low_feedintake)
+# Monitor the total feed intake over the last n days
+head(res$all_feedintake)
+# Monitor the average feed intake over the last n days
+head(res$mean_feedintake)
+# Monitor the average weight per pen over the last n days
+head(res$house_weight)
 # Monitor visit time in each hour over the last 1 day.
-res$visit_n
+head(res$visit_n_hour)
 # Monitor feed intake time in each hour over the last 1 day.
-res$feed_time
+head(res$feed_time_hour)
 # Monitor feed intake in each hour over the last 1 day.
-res$feed_intake
+head(res$feed_intake_hour)
 }

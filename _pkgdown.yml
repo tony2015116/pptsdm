@@ -21,10 +21,10 @@ navbar:
       href: articles/basic-usage.html
     - text: "Functions"
       href: reference/index.html
-    - text: "Articles"
-      menu:
-      - text: "Get started"
-        href: articles/basic-usage.html
+    # - text: "Articles"
+    #   menu:
+    #   - text: "Get started"
+    #     href: articles/basic-usage.html
     - text: "Changelog"
       href: news/index.html
   right:
@@ -46,3 +46,15 @@ reference:
     desc: monitor stations and pigs in schedule
     contents:
       - monitor_schedule
+  - title: monitor functions in monitor_table()
+    desc: conduct more flexible monitoring or analyze the results of monitoring
+    contents:
+      - process_data
+      - responder_na
+      - house_weight
+      - extreme_time_n
+      - low_feedintake
+      - all_feedintake
+      - number_location
+      - house_feedintake
+      - hour_stat

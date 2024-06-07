@@ -27,7 +27,7 @@ monitor_schedule(
 \item{...}{other parameters}
 }
 \value{
-pdf and pngs
+pdf, pngs and excels
 }
 \description{
 Feed intake monitor of pig performance test station
@@ -40,10 +40,11 @@ monitor_schedule(
   starttime = "10:05",
   startdate = format(Sys.Date(), "\%Y/\%m/\%d"),
   rscript_args = list(house_width = "1", 
-                      days = 7,
+                      days = 5,
+                      ref_date = Sys.Date(),
                       begin_date = "2024-05-01", 
-                      csv_path = "C:/Users/Dell/Desktop/test/NonEmptyCSVs",
-                      save_path = "C:/Users/Dell/Desktop/test"))
+                      csv_path = "C:/Users/Dell/Documents/projects/pptsdm_data",
+                      save_path = "C:/Users/Dell/Downloads/test"))
 # Delete monitor task
 taskscheduleR::taskscheduler_delete("ppt_csv_monitor")
 }

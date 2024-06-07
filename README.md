@@ -40,37 +40,39 @@ fid_monitor(data = csv_data, station_type = "nedap", save_path = "C:/Users/Dell/
 station_monitor(data = csv_data, station_type = "nedap", save_path = "C:/Users/Dell/Downloads/test")
 
 # Monitor station and data
-res <- other_monitor(data = data, house_width = "1", save_path = "C:/Users/Dell/Downloads/test")
-## Monitor the number of times 'na' appears in the last 7 days
-res$responder_na
-## Monitor the percentage of extreme weight records in the last 7 days
-res$extreme_weight
-## Monitor the visiting time and frequency of pigs in the last 7 days
-res$feed_time_n
-## Monitor the total feed intake over the last 7 days
-res$all_feedintake
-## Monitor the average feed intake over the last 7 days
-res$mean_feedintake
-## Monitor the average weight per pen over the last 7 days
-res$house_weight
+res <- table_monitor(data = csv_data, days = n, save_path = "C:/Users/Dell/Downloads/test")
+# Monitor the number of times 'na' appears in the last n days
+head(res$responder_na)
+# Monitor the percentage of extreme weight records in the last n days
+head(res$extreme_weight)
+# Monitor the visiting time and frequency of pigs in the last n days
+head(res$feed_time_n)
+# Monitor the low feedintake over the last n days
+head(res$low_feedintake)
+# Monitor the total feed intake over the last n days
+head(res$all_feedintake)
+# Monitor the average feed intake over the last n days
+head(res$mean_feedintake)
+# Monitor the average weight per pen over the last n days
+head(res$house_weight)
 # Monitor visit time in each hour over the last 1 day.
-res$visit_n
+head(res$visit_n_hour)
 # Monitor feed intake time in each hour over the last 1 day.
-res$feed_time
+head(res$feed_time_hour)
 # Monitor feed intake in each hour over the last 1 day.
-res$feed_intake
+head(res$feed_intake_hour)
 
 
-# Set monitor task
 monitor_schedule(
   taskname = "ppt_csv_monitor",
   schedule = "DAILY",
   starttime = "10:05",
   startdate = format(Sys.Date(), "%Y/%m/%d"),
   rscript_args = list(house_width = "1", 
-                      days = 7,
+                      days = 5,
+                      ref_date = Sys.Date(),
                       begin_date = "2024-05-01", 
-                      csv_path = "path/to/csv/data",
+                      csv_path = "C:/Users/Dell/Documents/projects/pptsdm_data",
                       save_path = "C:/Users/Dell/Downloads/test"))
 # Delete monitor task
 taskscheduleR::taskscheduler_delete("ppt_csv_monitor")

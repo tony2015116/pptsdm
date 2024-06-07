@@ -2,8 +2,17 @@ station_pig_monitor.Rmd:
   path: dev/station_pig_monitor.Rmd
   state: active
   R:
+  - R/all_feedintake.R
+  - R/extreme_time_n.R
   - R/fid_monitor.R
+  - R/hour_stat.R
+  - R/house_feedintake.R
+  - R/house_weight.R
+  - R/low_feedintake.R
   - R/monitor_schedule.R
+  - R/number_location.R
+  - R/process_data.R
+  - R/responder_na.R
   - R/station_monitor.R
   - R/table_monitor.R
   tests: []

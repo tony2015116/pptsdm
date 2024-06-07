@@ -11,7 +11,7 @@
 #'
 #' @importFrom utils "capture.output"
 #'
-#' @return pdf and pngs
+#' @return pdf, pngs and excels
 #' @export
 #' 
 #' @examples
@@ -22,10 +22,11 @@
 #'   starttime = "10:05",
 #'   startdate = format(Sys.Date(), "%Y/%m/%d"),
 #'   rscript_args = list(house_width = "1", 
-#'                       days = 7,
+#'                       days = 5,
+#'                       ref_date = Sys.Date(),
 #'                       begin_date = "2024-05-01", 
-#'                       csv_path = "C:/Users/Dell/Desktop/test/NonEmptyCSVs",
-#'                       save_path = "C:/Users/Dell/Desktop/test"))
+#'                       csv_path = "C:/Users/Dell/Documents/projects/pptsdm_data",
+#'                       save_path = "C:/Users/Dell/Downloads/test"))
 #' # Delete monitor task
 #' taskscheduleR::taskscheduler_delete("ppt_csv_monitor")
 monitor_schedule <- function(taskname, schedule, starttime, startdate, rscript_args = NULL, ...) {
@@ -54,12 +55,12 @@ monitor_schedule <- function(taskname, schedule, starttime, startdate, rscript_a
   dir.create(short_temp_path, showWarnings = FALSE)
   script_file <- file.path(short_temp_path, paste0(taskname, "_", sample(letters, 1), ".R"))
 
-  my_function <- function(csv_path, begin_date, house_width, days, ...) {
+  my_function <- function(csv_path, begin_date, house_width, days, ref_date, ...) {
     csv_files <- list.files(csv_path, full.names = T, pattern = ".csv", recursive = T)
     csv_data <- pptsda::import_csv(csv_files, package = "data.table")
     pptsdm::fid_monitor(data = csv_data, begin_date = begin_date, station_type = "nedap", ...)
     pptsdm::station_monitor(data = csv_data, begin_date = begin_date, station_type = "nedap", ...)
-    pptsdm::table_monitor(data = csv_data, house_width = house_width, days = days,...)
+    pptsdm::table_monitor(data = csv_data, house_width = house_width, days = days, ref_date = ref_date, ...)
   }
 
   # Save the arguments to a configuration file
