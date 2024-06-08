@@ -32,7 +32,7 @@ responder_na <- function(data, days, ref_date = Sys.Date()) {
   ][, unique(.SD)  # Remove duplicate entries
   ][, n := fifelse(is.na(responder), 1L, 0L), by = .(location, date)  # Count NAs in responder column
   ][, sum_n := sum(n), by = .(location, date)  # Sum the NA counts by location and date
-  ][, date := format(date, format="%y-%m-%d")  # Format date for consistency in output
+  ][, date := format(date, format="%m-%d")  # Format date for consistency in output
   ][, .(location, date, sum_n)  # Select necessary columns
   ][, unique(.SD)  # Remove any duplicates after processing
   ]

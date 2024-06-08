@@ -4,13 +4,7 @@
 \alias{table_monitor}
 \title{Table Monitor Function}
 \usage{
-table_monitor(
-  data,
-  house_width = "1",
-  days = 5,
-  ref_date = Sys.Date(),
-  save_path
-)
+table_monitor(data, house_width = "1", days, ref_date = Sys.Date(), save_path)
 }
 \arguments{
 \item{data}{data.frame, required.
@@ -20,7 +14,7 @@ The input data frame containing the data to be processed.}
 A character string representing the house width. Default is "1".}
 
 \item{days}{integer, optional.
-An integer representing the number of days for the analysis. Default is 7.}
+An integer representing the number of days for the analysis.}
 
 \item{ref_date}{Date, optional.
 A Date object representing the reference date. Default is the current date

@@ -32,8 +32,8 @@ navbar:
     #   href: https://twitter.com/tonyituite
     - icon: fab fa-github fa-lg
       href: https://github.com/tony2015116/pptsdm
-    - icon: fa fa-signal fa-lg
-      href: https://tony2015116.gitee.io/pptsdm
+    # - icon: fa fa-signal fa-lg
+    #   href: https://tony2015116.gitee.io/pptsdm
 
 reference:
   - title: monitor functions
@@ -42,11 +42,12 @@ reference:
       - station_monitor
       - fid_monitor
       - table_monitor
+      - monitor_all
   - title: schedule monitor functions
     desc: monitor stations and pigs in schedule
     contents:
       - monitor_schedule
-  - title: monitor functions in monitor_table()
+  - title: small monitor functions
     desc: conduct more flexible monitoring or analyze the results of monitoring
     contents:
       - process_data

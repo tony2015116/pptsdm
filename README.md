@@ -22,12 +22,8 @@ pak::pak("tony2015116/pptsdm")
 This is a basic example which shows you how to download pig performance test CSVs data:
 
 ``` r
-# Install packages
-install.packages("pak")
-pak::pak("tony2015116/pptsdd")
-
 # Require packages
-library(pptsdd)
+library(pptsdm)
 
 # Load CSV data
 csv_files <- list.files("path/to/csv/data", full.names = T, pattern = ".csv", recursive = T)
@@ -39,7 +35,7 @@ fid_monitor(data = csv_data, station_type = "nedap", save_path = "C:/Users/Dell/
 # Station monitor
 station_monitor(data = csv_data, station_type = "nedap", save_path = "C:/Users/Dell/Downloads/test")
 
-# Monitor station and data
+# Monitor station and data in Excel
 res <- table_monitor(data = csv_data, days = n, save_path = "C:/Users/Dell/Downloads/test")
 # Monitor the number of times 'na' appears in the last n days
 head(res$responder_na)
@@ -62,7 +58,10 @@ head(res$feed_time_hour)
 # Monitor feed intake in each hour over the last 1 day.
 head(res$feed_intake_hour)
 
+# Monitor all by hands
+monitor_all(csv_data, begin_date = "2024-05-01", days = 5, save_path = "C:/Users/Dell/Downloads/test")
 
+# Set a monitor task
 monitor_schedule(
   taskname = "ppt_csv_monitor",
   schedule = "DAILY",
@@ -70,10 +69,49 @@ monitor_schedule(
   startdate = format(Sys.Date(), "%Y/%m/%d"),
   rscript_args = list(house_width = "1", 
                       days = 5,
-                      ref_date = Sys.Date(),
                       begin_date = "2024-05-01", 
                       csv_path = "C:/Users/Dell/Documents/projects/pptsdm_data",
                       save_path = "C:/Users/Dell/Downloads/test"))
 # Delete monitor task
 taskscheduleR::taskscheduler_delete("ppt_csv_monitor")
+
+# Use hour_stat()
+data <- data_csv[, date := as.Date(visit_time)]
+
+# Use nest_dt() in tidyfst
+res <- data.table::copy(data) |>
+  nest_dt(date, .name = "data") |>
+  mutate_dt(data = map2(date, data, \(x, y) hour_stat(data = y, target_date = x))) |>
+  mutate_dt(data = map(data, \(x) x$feed_intake)) |>
+  unnest_dt("data")
+  
+# Use functions in tidyverse
+## functions about hour_stat()
+my_function <- function(x) {
+  x <- data.table::as.data.table(x)
+  date = unique(x$date)
+  res <- hour_stat(data = x, target_date = date)
+  res$feed_intake
+}
+## Use group_split() in tidyverse
+data_split <- data |>
+  as.data.frame() |>
+  group_split(date)
+
+names(data_split) <- data_split |>
+  map(.f = ~pull(.x, date)) |>
+  map(.f = ~as.character(.x)) |>
+  map(.f = ~unique(.x)) 
+
+res <- data_split |>
+  map(., \(x) my_function(x)) |>
+  map(as.data.frame) |>
+  bind_rows(.id = "date")
+
+## Use group_nest() in tidyverse
+res <- data |>
+  as.data.frame() |>
+  group_nest(date, keep = T) |>
+  mutate(data = map(data, \(x) my_function(x))) |>
+  unnest(data)
 ```

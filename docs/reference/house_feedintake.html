@@ -57,12 +57,6 @@ formatting and then groups by 'house' and 'date' to summarize feed intake, which
      
   </a>
 </li>
-<li>
-  <a href="https://tony2015116.gitee.io/pptsdm" class="external-link">
-    <span class="fa fa-signal fa-lg"></span>
-     
-  </a>
-</li>
         
         
 
@@ -130,16 +124,16 @@ the input data or the 'process_data' function are not correctly configured to ha
     <div id="ref-examples">
     <h2>Examples</h2>
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="co"># Load CSV data</span></span></span>
-<span class="r-in"><span><span class="va">data</span> <span class="op">&lt;-</span> <span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/fread.html" class="external-link">fread</a></span><span class="op">(</span><span class="st">"C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv"</span><span class="op">)</span></span></span>
+<span class="r-in"><span><span class="va">data</span> <span class="op">&lt;-</span> <span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/data.table/man/fread.html" class="external-link">fread</a></span><span class="op">(</span><span class="st">"C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu">house_feedintake</span><span class="op">(</span>data <span class="op">=</span> <span class="va">data</span>, house_width <span class="op">=</span> <span class="st">"1"</span>, days <span class="op">=</span> <span class="fl">5</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> Key: &lt;date&gt;</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>      date      5 all_feedintake</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>    &lt;char&gt;  &lt;num&gt;          &lt;num&gt;</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1:  06-02 460.51         460.51</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2:  06-03 464.41         464.41</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3:  06-04 469.79         469.79</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4:  06-05 470.22         470.22</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 5:  06-06 469.56         469.56</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1:  06-03 460.51         460.51</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2:  06-04 464.41         464.41</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3:  06-05 469.79         469.79</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4:  06-06 470.22         470.22</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 5:  06-07 469.56         469.56</span>
 </code></pre></div>
     </div>
   </div>

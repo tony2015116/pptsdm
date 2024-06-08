@@ -12,7 +12,7 @@
 #' @param house_width character, optional.
 #'   A character string representing the house width. Default is "1".
 #' @param days integer, optional.
-#'   An integer representing the number of days for the analysis. Default is 7.
+#'   An integer representing the number of days for the analysis.
 #' @param ref_date Date, optional.
 #'   A Date object representing the reference date. Default is the current date 
 #'   (`Sys.Date()`).
@@ -68,7 +68,7 @@
 #' head(res$feed_time_hour)
 #' # Monitor feed intake in each hour over the last 1 day.
 #' head(res$feed_intake_hour)
-table_monitor <- function(data, house_width = "1", days = 5, ref_date = Sys.Date(), save_path) {
+table_monitor <- function(data, house_width = "1", days, ref_date = Sys.Date(), save_path) {
   
   # Check parameters
   if (missing(data) || is.null(data)) stop("data cannot be NULL")

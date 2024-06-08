@@ -469,654 +469,9 @@ data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_moni
 station_monitor(data = data, station_type = "nedap", save_path = "C:/Users/Dell/Downloads/test")
 ```
 
-# process_data
-    
-```{r function-process_data}
-#' Process Data Frame or Data Table
-#' 
-#' This function performs various checks and transformations on a provided data frame or data table.
-#' It checks for necessary columns, correct data types, and performs various operations like filtering, 
-#' joining, and calculating sequences.
-#' 
-#' @param data A data frame or data table that must contain specific columns with specific data types.
-#'             Required columns are: "animal_number", "lifenumber", "responder", "location", "visit_time",
-#'             "duration", "state", "weight", "feed_intake".
-#'
-#' @return Returns a modified data table with computed sequence features and potentially other transformations.
-#'         The function ensures that columns are of the correct type and that data integrity is maintained.
-#' 
-#' @export
-#' 
-#' @note This function will stop execution and produce an error if the input data does not meet the expected
-#'       requirements, such as missing columns or incorrect data types.
-process_data <- function(data) {
-  if (missing(data)) stop("Missing data frame or data table!")
-  if (!is.data.frame(data) && !inherits(data, "data.table")) stop("Data is not a data frame or data table!")
-  #if (!is.data.frame(data) && !class(data) == 'data.table')
-  # Check for required columns
-  required_columns <- c("animal_number", "lifenumber", "responder", "location", "visit_time", "duration", "state", "weight", "feed_intake")
-  missing_columns <- setdiff(required_columns, names(data))
-  if (length(missing_columns) > 0) stop(paste("Missing columns:", paste(missing_columns, collapse = ", ")))
-
-  # Check types for some columns
-  if (!is.numeric(data$animal_number) && !is.character(data$animal_number)) stop("'animal_number' must be numeric or character!")
-  if (!is.logical(data$lifenumber) && !is.character(data$lifenumber)) stop("'lifenumber' must be logical or character!")
-  if (!is.numeric(data$responder) && !is.character(data$responder)) stop("'responder' must be numeric or character!")
-  if (!is.numeric(data$location)) stop("'location' must be numeric!")
-  if (!is.character(data$visit_time) && !inherits(data$visit_time, "POSIXt")) stop("'visit_time' must be character or POSIXct!")
-  if (!is.numeric(data$duration)) stop("'duration' must be numeric!")
-  if (!is.numeric(data$state)) stop("'state' must be numeric!")
-  if (!is.numeric(data$weight)) stop("'weight' must be numeric!")
-  if (!is.numeric(data$feed_intake)) stop("'feed_intake' must be numeric!")
-
-  # Check if the data is a data.frame, if yes, then make a deep copy of the data and convert it into data.table
-  if (is.data.frame(data)) data <- data.table::as.data.table(data.table::copy(data))
-
-  responder <- weight <- . <- location <- N <- n <- location_maxn <- visit_time <- seq_days <- seq_in_day <- seq_in_location <- feed_intake <- NULL
-
-  # Filter out the data with NA in 'responder' column and remove duplicates
-  data_temp <- unique(data)[!is.na(responder)]
-
-  # Create a unique data.table for 'responder' and 'location'
-  unique_dt <- unique(data_temp[, .(responder, location)])
-
-  # Find duplicate 'responder's
-  dup_responders <- unique_dt[, .N, by = .(responder)][N > 1]
-
-  # Compute the number of records for each 'responder' and 'location'
-  num_records <- unique(data_temp[, `:=`(n, .N), .(responder, location)][, .(responder, location, n)])
-
-  # Set 'responder' as the key for join operations
-  data.table::setkey(dup_responders, responder)
-  data.table::setkey(num_records, responder)
-
-  # Perform left join operation on 'num_records' and 'dup_responders'
-  dup_records <- num_records[dup_responders]
-
-  # Modify the 'location' in the unique data.table for duplicate 'responder's
-  if(nrow(dup_responders) > 0) {
-    # Compute the 'location' with maximum number of records for each 'responder'
-    max_n_location <- num_records[, .(max_n = max(n), location_maxn = location[which.max(n)]), by = responder]
-
-    # Remove duplicates in 'max_n_location' after modifying 'location'
-    max_n_location <- unique(max_n_location)
-
-    # Perform left join operation on 'data_temp' and 'max_n_location' and update 'location' to 'location_maxn'
-    data_temp <- merge(data_temp, max_n_location, by = "responder", all.x = TRUE)[, location := location_maxn][, c("max_n", "location_maxn") := NULL]
-  }
-
-  # Preprocess data and compute sequence features
-  # Check the class of visit_time
-  if(is.character(data_temp$visit_time)) {
-    # If visit_time is a character vector, replace "/" with "-"
-    data_temp[, visit_time := gsub("/", "-", visit_time)]
-    data_pre <- data_temp[, `:=`(c("date", "time"), data.table::IDateTime(visit_time))]
-  } else {
-    # If visit_time is not a character vector, assume it's a datetime object
-    data_pre <- data_temp[, `:=`(c("date", "time"), data.table::IDateTime(visit_time))]
-  }
-  data_pre <- data_pre[data.table::CJ(date = tidyr::full_seq(date, 1)), on = .(date)  # Compute complete sequence of dates
-  ][order(date), `:=`(seq_days, .GRP), by = date  # Compute sequence number of days
-  ][order(visit_time), `:=`(seq_in_day, 1:.N), by = .(responder, date)  # Compute sequence number in day
-  ][order(visit_time), `:=`(seq_in_location, 1:.N), by = .(location, date)  # Compute sequence number in location
-  ][order(responder, visit_time)  # Order data by 'responder' and 'visit_time'
-  ][, .(responder, location, date, seq_days, seq_in_day, seq_in_location, feed_intake, weight)  # Keep only necessary columns #seq_in_location, seq_days, seq_in_day,, weight
-  ][, `:=` (responder = as.character(responder),  # Convert 'responder' and 'location' to character type
-            location = as.character(location),
-            feed_intake = as.numeric(feed_intake),
-            weight = as.numeric(weight))][!is.na(location)][]  # Convert 'weight' to numeric type
-  return(data_pre)
-}
-```
-  
-```{r example-process_data}
-# Load CSV data
-data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
-processed_data <- process_data(data = data)
-head(processed_data)
-```
-  
-  
-# house_weight
-    
-```{r function-house_weight}
-#' Calculate Mean Weight for Specified Location and Date Range
-#' 
-#' This function processes a dataset to extract weights by specified house (part of location), 
-#' calculates mean weights per house over a given number of days from a reference date, and 
-#' returns the data in a wide format with dates as rows and houses as columns.
-#' 
-#' @param data A data frame that must include the columns: "location", "date", and "weight".
-#' @param house_width A string indicating the number of characters to use from the 'location'
-#'                    column to create the 'house' identifier. Defaults to "1".
-#' @param days An integer specifying the number of days to include in the analysis
-#'                  back from the reference date.
-#' @param ref_date A Date object used as the reference date for filtering data. 
-#'                 Defaults to the current system date.
-#'
-#' @return Returns a data frame in wide format where each column represents a house
-#'         and each row represents a date within the specified range. Values are mean weights
-#'         (in kilograms, rounded to two decimal places) for each house-date combination.
-#' 
-#' @export
-#'
-#' @note If 'data' does not contain the necessary columns, the function will stop with an error message.
-#'       It is crucial to ensure that the 'location' and 'date' columns are formatted correctly.
-house_weight <- function(data, house_width = "1", days, ref_date = Sys.Date()) {
-  house <- location <- mean_weight <- weight <- . <- NULL
-  data <- process_data(data)
-
-  # Validate necessary columns presence
-  necessary_cols <- c("location", "date", "weight")
-  if (!all(necessary_cols %in% names(data))) {
-    stop("Data must include the necessary columns: location, date, and weight.")
-  }
-  
-  # Create 'house' column by extracting specified width from 'location'
-  data[, house := paste0("house_", substr(location, 1, house_width))]
-
-  # Filter data for the last specified number of days from a reference date
-  filtered_data <- data[date >= (ref_date - days) & date < ref_date, ]
-
-  # Calculate mean weight per location and date, adjust weight scale
-  stat_data <- filtered_data[, mean_weight := mean(weight) / 1000, by = .(house, date)
-  ][, .(date, house, mean_weight)
-  ][, unique(.SD)][, date := format(date, "%m-%d")]
-
-  # Remove duplicate entries and reshape data to wide format
-  result_data <- dcast(stat_data, date ~ house, value.var = "mean_weight")
-
-  # Round numeric columns to two decimal places
-  numeric_cols <- setdiff(names(result_data), "date")
-  result_data[, (numeric_cols) := lapply(.SD, round, digits = 2), .SDcols = numeric_cols][]
-
-  return(result_data)
-}
-```
-  
-```{r example-house_weight}
-# Load CSV data
-data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
-head(house_weight(data = data, days = 5))
-```
-  
-# responder_na
-    
-```{r function-responder_na}
-#' Analyze Missing Responder Data
-#'
-#' This function processes a dataset to identify and summarize the occurrences of NA values in the
-#' 'responder' column within a specified number of days from a reference date. It converts dates,
-#' removes duplicates, and aggregates NA counts per location and date. The output is presented in
-#' a wide format with locations as rows and formatted dates as columns.
-#'
-#' @param data A data table that must include the columns: 'location', 'date', 'visit_time', and 'responder'.
-#' @param days An integer specifying the number of days to include in the analysis back from the reference date.
-#' @param ref_date A Date object used as the reference date for filtering data; defaults to the current system date.
-#'
-#' @return Returns a data table in wide format where each row represents a location and each column a date.
-#'         Entries are the counts of NAs found in the 'responder' column for that location and date. 
-#'         An additional 'total_nas' column shows the sum of NAs across all dates for each location.
-#'
-#' @export
-#' 
-#' @note This function stops execution and produces an error if the input data does not contain all the required columns.
-#'       Ensure that 'location', 'date', 'visit_time', and 'responder' columns are formatted correctly and present.
-responder_na <- function(data, days, ref_date = Sys.Date()) {
-  visit_time <- n <- responder <- . <- location <- sum_n <- total_nas <- NULL
-  data <- copy(data)
-  # Convert visit_time to date and time columns and filter data by the given date range
-  processed_data <- data[, `:=`(c("date", "time"), data.table::IDateTime(visit_time))
-  ][date >= (ref_date - days) & date < ref_date
-  ][, unique(.SD)  # Remove duplicate entries
-  ][, n := fifelse(is.na(responder), 1L, 0L), by = .(location, date)  # Count NAs in responder column
-  ][, sum_n := sum(n), by = .(location, date)  # Sum the NA counts by location and date
-  ][, date := format(date, format="%y-%m-%d")  # Format date for consistency in output
-  ][, .(location, date, sum_n)  # Select necessary columns
-  ][, unique(.SD)  # Remove any duplicates after processing
-  ]
-
-  # Reshape the processed data to wide format using location as rows and dates as columns
-  wide_data <- dcast(processed_data, location ~ date, value.var = "sum_n")
-  wide_data[, location := as.character(location)]  # Convert 'location' to character for consistent data types
-
-  # Calculate the total number of NAs for each location across all date columns
-  numeric_cols <- setdiff(names(wide_data), "location")
-  wide_data[, total_nas := rowSums(.SD, na.rm = TRUE), .SDcols = numeric_cols][]
-
-  return(wide_data)
-}
-```
-  
-```{r example-responder_na}
-# Load CSV data
-data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
-print(responder_na(data = data, days = 5))
-```
-  
-# extreme_time_n
-    
-```{r function-extreme_time_n}
-#' Compute Outlier Statistics and Time-based Metrics
-#'
-#' This function analyzes weight data to identify outliers using the Interquartile Range (IQR) method,
-#' and computes time-based metrics for data entries within a specified number of days from a reference date.
-#' It also reshapes the results into a wide format, separating the percentage of weight outliers and other metrics
-#' like count of observations and total duration by location and date.
-#'
-#' @param data data.table, required.
-#'   The input data table which must contain the following columns: `visit_time` (POSIXct), `location` (character),
-#'   `responder` (character), `weight` (numeric, in grams), and `duration` (numeric, in seconds).
-#' @param days integer, required.
-#'   The number of days before the reference date to include in the analysis.
-#' @param ref_date Date, optional.
-#'   The specific date to use as the reference for filtering data; defaults to the current system date.
-#'
-#' @return A list of two data.tables:
-#' \itemize{
-#'   \item `weight_outlier`: A data table in wide format showing the percentage of weight outliers
-#'                           per location across the specified dates.
-#'   \item `feedintake`: A data table in wide format showing the count of observations and total
-#'                       duration in hours per location across the specified dates.
-#' }
-#' 
-#' @export
-#' 
-#' @note
-#' The function assumes that the input data has all the required columns. The 'visit_time' should
-#' be in POSIXct format to correctly convert to dates. Make sure the data is pre-cleaned to avoid errors
-#' due to missing values, especially in the 'location' and 'responder' columns.
-extreme_time_n <- function(data, days, ref_date = Sys.Date()) {
-  visit_time <- location <- . <- responder <- weight <- duration <- outlier <- NULL
-  data <- data.table::copy(data)
-  # Ensure 'visit_time' is a proper date-time format
-  data_temp <- data[, `:=`(c("date", "time"), data.table::IDateTime(visit_time))
-  ][date >= (ref_date - days) & date <= ref_date
-  ][, unique(.SD)
-  ][, date := format(date, format = "%m-%d")
-  ][!is.na(location), .(location, date, responder, weight, duration)][!is.na(responder)]
-
-  # Calculate Interquartile Range (IQR) and identify outliers
-  data_temp[, outlier := {
-    Q1 <- quantile(weight, 0.25, na.rm = TRUE)
-    Q3 <- quantile(weight, 0.75, na.rm = TRUE)
-    IQR <- Q3 - Q1
-    (weight < (Q1 - 1.5 * IQR)) | (weight > (Q3 + 1.5 * IQR))
-  }, by = .(location, date, responder)]
-
-  # Compute statistics for each location and date
-  extreme_stats <- data_temp[, .(
-    extreme_weight = 100 * sum(outlier) / .N,   # Percentage of outliers
-    n = .N,                                 # Total count of observations
-    time = sum(duration) / 3600             # Total duration in hours
-  ), by = .(location, date)]
-
-  # Reshape data to wide format
-  extreme_stats_wide <- dcast(extreme_stats, location ~ date, value.var = "extreme_weight")
-  n_time_wide <- dcast(extreme_stats, location ~ date, value.var = c("n", "time"))
-
-  # Round numeric columns to two decimal places
-  numeric_cols <- setdiff(names(extreme_stats_wide), c("location"))
-  extreme_stats_wide[, (numeric_cols) := lapply(.SD, round, digits = 2), .SDcols = numeric_cols]
-  numeric_cols <- grep("time", names(n_time_wide), value = TRUE)
-  n_time_wide[, (numeric_cols) := lapply(.SD, round, digits = 2), .SDcols = numeric_cols]
-  return(list(weight_outlier = extreme_stats_wide, feedintake = n_time_wide))
-}
-```
-  
-```{r example-extreme_time_n}
-# Load CSV data
-data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
-print(extreme_time_n(data = data, days = 5))
-```
-  
-  
-# low_feedintake
-    
-```{r function-low_feedintake}
-#' Analyze Low Feed Intake
-#'
-#' This function processes a dataset to calculate the total feed intake per location, date,
-#' and responder. It then identifies days where the sum of feed intake is below a threshold,
-#' specifically less than 0.5 kg. The results are returned in a wide format with each location
-#' and responder combination as a row and dates as columns.
-#'
-#' @param data A data table that must include the columns: 'location', 'date', 'responder', 
-#'             and 'feed_intake'. The 'visit_time' must be able to be converted to IDateTime format.
-#' @param days An integer specifying the number of days to include in the analysis up to and including
-#'             the reference date.
-#' @param ref_date A Date object used as the reference date for filtering data; defaults to the current
-#'                 system date.
-#'
-#' @return Returns a data table in wide format where each row represents a combination of location and
-#'         responder, columns are dates, and values are the summed feed intake that are below the threshold
-#'         of 0.5 kg. Also includes a 'sum_feedintake' column which is the total sum of feed intake across
-#'         the period for each row.
-#' 
-#' @export
-#' 
-#' @note This function assumes that the input data has been preprocessed to include the necessary columns.
-#'       It will stop and raise an error if the 'visit_time' cannot be converted to date and time format.
-low_feedintake <- function(data, days, ref_date = Sys.Date()) {
-  visit_time <- . <- feed_intake <- location <- responder <- sum_feedintake <- NULL
-  data <- data.table::copy(unique(data))
-  processed_data <- data[, `:=`(c("date", "time"), data.table::IDateTime(visit_time))
-  ][date >= (ref_date - days) & date <= ref_date
-  ][, .(sum_feedintake = sum(feed_intake) / 1000), by = .(location, date, responder)][
-    , date := format(date, "%m-%d")]
-
-  # Filter entries where 'sum_feedintake' is less than 0.5
-  processed_data <- processed_data[sum_feedintake < 0.5]
-
-  # Convert to wide format
-  data_wide <- dcast(processed_data, location + responder ~ date, value.var = "sum_feedintake")
-  # Calculate sum across numeric columns for each row and round the results
-  numeric_cols <- setdiff(names(data_wide), c("location", "responder"))
-  res <- data_wide[, sum_feedintake := round(rowSums(.SD, na.rm = TRUE), digits = 2), .SDcols = numeric_cols][]
-  # Sort by 'sum_feed_intake'
-  setorder(res, responder, -sum_feedintake, na.last = TRUE)  # Sort in descending order
-
-  return(res)
-}
-```
-  
-```{r example-low_feedintake}
-# Load CSV data
-data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
-print(low_feedintake(data = data, days = 5))
-```
-  
-# all_feedintake
-    
-```{r function-all_feedintake}
-#' Calculate Total Feed Intake Per Location
-#'
-#' This function aggregates total feed intake across a specified date range for each location.
-#' The feed intake data is first summed per location and date, then transformed to kilograms
-#' and formatted to wide format with locations as rows and dates as columns.
-#'
-#' @param data A data table that must include at least 'location', 'date', 'visit_time', 
-#'             and 'feed_intake' columns. 'visit_time' should be convertible to date and time.
-#' @param days An integer specifying the number of days to include in the analysis up to and including
-#'             the reference date.
-#' @param ref_date A Date object used as the reference date for filtering data; defaults to the current
-#'                 system date.
-#'
-#' @return Returns a data table in wide format with locations as rows and formatted dates as columns.
-#'         Each entry is the summed feed intake for that date and location, converted to kilograms.
-#'         An additional 'all_feedintake' column is included, showing the total feed intake for each
-#'         location across all dates.
-#' 
-#' @export
-#' 
-#' @note This function expects that the input data is pre-cleaned and correctly formatted. 
-#'       Errors may occur if 'visit_time' cannot be properly converted.
-all_feedintake <- function(data, days, ref_date = Sys.Date()) {
-  visit_time <- . <- feed_intake <- location <- NULL
-  data <- data.table::copy(unique(data))
-  processed_data <- data[, `:=`(c("date", "time"), data.table::IDateTime(visit_time))
-  ][date >= (ref_date - days) & date <= ref_date,
-    .(sum_feedintake = sum(feed_intake) / 1000),
-    by = .(location, date)][, date := format(date, "%m-%d")][, location := as.character(location)]
-
-
-  # Convert to wide format
-  res <- dcast(processed_data, location ~ date, value.var = "sum_feedintake")
-  numeric_cols <- setdiff(names(res), "location")
-  res[, all_feedintake := round(rowSums(.SD, na.rm = TRUE), 2), .SDcols = numeric_cols]
-  res[, (numeric_cols) := lapply(.SD, function(x) round(x, digits = 2)), .SDcols = numeric_cols][]
-  # Return processed data table
-  return(res)
-}
-```
-  
-```{r example-all_feedintake}
-# Load CSV data
-data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
-print(all_feedintake(data = data, days = 5))
-```
-  
-# number_location
-    
-```{r function-number_location}
-#' Count Responders by Location and Date
-#'
-#' This function processes a dataset to calculate the number of responders per specified 'house'
-#' (a subset of the 'location' field) for each date within a specified number of days from a reference date.
-#' The data is first processed to ensure the 'date' column is in Date format, 'house' is extracted from
-#' 'location', and duplicates are removed. The output is provided in wide format with dates as rows
-#' and houses as columns.
-#'
-#' @param data A data table that must include the columns: 'location', 'date', 'responder'.
-#'             The function expects that 'date' can be converted into Date format.
-#' @param house_width An integer specifying the number of characters from the start of the 'location'
-#'                    field to define a 'house'.
-#' @param days An integer specifying the number of days to include in the analysis back from the
-#'             reference date.
-#' @param ref_date A Date object used as the reference date for filtering data; defaults to the current
-#'                 system date.
-#'
-#' @return Returns a data table in wide format where each row represents a date and each column a house.
-#'         Each entry is the count of responders for that house and date.
-#' 
-#' @export
-#' 
-#' @note This function depends on another function 'process data' to first ensure the data is in the correct
-#'       format. It is crucial that the input data and the 'process_data' function are properly configured
-#'       to handle the data correctly.
-number_location <- function(data, house_width, days, ref_date = Sys.Date()) {
-  house <- location <- . <- responder <- NULL
-  # Ensure date column is in Date format
-  data <- process_data(data)
-
-  # Step 1: Create 'house' column by extracting specified characters from 'location'
-  # Step 2: Filter data within the last 'days' from 'ref_date'
-  # Step 3: Remove duplicate rows based on 'house', 'date', 'responder'
-  # Consolidate these steps to streamline operations
-  data <- data[, house := substr(location, 1, house_width)
-  ][date >= (ref_date - days) & date <= ref_date
-  ][, date := format(date, "%m-%d")][, .(house, date, responder)
-  ][, .N, by = .(house, date, responder)]
-
-  # Step 4: Group by 'house' and 'date' to count the number of responders
-  summary_data <- data[, .(count = .N), by = .(house, date)]
-
-  # Step 5: Reshape the data into wide format using 'dcast'
-  # 'date' as rows, 'house' as columns, and 'count' as values
-  result_data <- dcast(summary_data, date ~ house, value.var = "count")
-
-  return(result_data)
-}
-```
-  
-```{r example-number_location}
-# Load CSV data
-data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
-print(number_location(data = data, house_width = "1", days = 5))
-```
-  
-# house_feedintake
-    
-```{r function-house_feedintake}
-#' Calculate Feed Intake by House and Date
-#'
-#' This function calculates the total feed intake for each 'house' (a subset of 'location') over a specified
-#' date range, and presents the data in a wide format. The function preprocesses the data to ensure proper 
-#' formatting and then groups by 'house' and 'date' to summarize feed intake, which is then converted to kilograms.
-#'
-#' @param data A data table that must include at least 'location', 'date', and 'feed_intake' columns.
-#'             It is expected that the data is already in a suitable format for processing.
-#' @param house_width An integer specifying the number of characters from the start of the 'location'
-#'                    field to define a 'house'.
-#' @param days An integer specifying the number of days to include in the analysis up to and including
-#'             the reference date.
-#' @param ref_date A Date object used as the reference date for filtering data; defaults to the current
-#'                 system date.
-#'
-#' @return Returns a data table in wide format where each row represents a date and each column a house.
-#'         The entries are the summed feed intake for each house on each date, in kilograms. An additional
-#'         column 'all_feedintake' shows the total feed intake across all houses for each date.
-#' 
-#' @export
-#' 
-#' @note This function depends on another function 'process_data' to preprocess the data. Errors may occur if
-#'       the input data or the 'process_data' function are not correctly configured to handle the data.
-house_feedintake <- function(data, house_width, days, ref_date = Sys.Date()) {
-  house <- location <- . <- feed_intake <- NULL
-
-  data <- process_data(data)
-
-  # Step 1: Create 'house' from the first characters of 'location' and filter by date
-  data[, house := substr(location, 1, house_width)]
-  filtered_data <- data[date >= (ref_date - days) & date <= ref_date][, date := format(date, "%m-%d")]
-
-  # Step 2: Calculate sum of 'feed_intake' per 'house' and 'date', dividing by 1000
-  summarized_data <- filtered_data[, .(sum_feed_intake = sum(feed_intake) / 1000), by = .(house, date)]
-
-  # Step 3: Remove duplicates if any exist
-  unique_data <- unique(summarized_data, by = c("house", "date"))
-
-  # Step 4: Reshape data to wide format
-  wide_data <- dcast(unique_data, date ~ house, value.var = "sum_feed_intake")
-
-  # Step 5: Calculate total feed intake across all houses for each date
-  numeric_cols <- setdiff(names(wide_data), "date")
-  wide_data[, all_feedintake := rowSums(.SD, na.rm = TRUE), .SDcols = numeric_cols]
-
-  # Round numeric columns to two decimal places
-  numeric_cols <- setdiff(names(wide_data), "date")
-  wide_data[, (numeric_cols) := lapply(.SD, round, digits = 2), .SDcols = numeric_cols][]
-
-  return(wide_data)
-}
-```
-  
-```{r example-house_feedintake}
-# Load CSV data
-data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
-print(house_feedintake(data = data, house_width = "1", days = 5))
-```
-  
-    
-```{r function-merge_data}
-#' Merge Data and Calculate Mean Feed Intake
-#'
-#' This function merges two datasets based on the 'date' column and calculates the mean feed intake
-#' for each common house present in both datasets. It also handles the renaming of overlapping columns
-#' and rounds numerical values for better presentation.
-#'
-#' @param feedintake A data frame containing feed intake data with a 'date' column.
-#' @param n A data frame containing count data with a 'date' column.
-#'
-#' @return Returns a merged data frame with all rows included from both input frames. Suffixes "_feed" 
-#'         and "_n" are added to overlapping column names from the 'feedintake' and 'n' datasets respectively. 
-#'         The function also adds new columns representing the mean feed intake per common house.
-#' 
-#' @note It is crucial to ensure that both data frames include a 'date' column for the merge operation.
-#'       The function assumes that all numeric values need to be rounded to two decimal places.
-merge_data <- function(feedintake, n) {
-  . <- NULL
-  # Merge hh2 and hh by "date", including all rows and adding suffixes to overlapping column names
-  res3 <- merge(feedintake, n, by = "date", all = TRUE, suffixes = c("_feed", "_n"))
-
-  # Extract column names exclusive to hh2 (excluding "date" and "sum_feed_intake")
-  cols_feed <- names(feedintake)[!names(n) %in% c("date", "all_feedintake")]
-
-  # Extract column names exclusive to hh (excluding "date")
-  cols_n <- names(n)[!names(n) %in% c("date")]
-
-  # Identify common columns between hh2 and hh for calculating mean feed intake
-  intersect_house <- intersect(cols_feed, cols_n)
-
-  # Append suffixes to column names for the merged table
-  cols_feed_name <- paste0(intersect_house, "_feed")
-  cols_n_name <- paste0(intersect_house, "_n")
-
-  # Calculate mean feed intake for each common house and assign it to new columns
-  res3[, paste0(intersect_house, "_mean_feed") := Map(function(feed, n) res3[[feed]] / res3[[n]],
-                                                      cols_feed_name, cols_n_name)]
-
-  # Identify and round double columns to three decimal places
-  double_cols <- names(res3)[sapply(res3, is.double)]
-  res3[, (double_cols) := lapply(.SD, function(x) round(x, digits = 2)), .SDcols = double_cols]
-
-  return(res3)
-}
-```
-  
-# hour_stat
-    
-```{r function-hour_stat}
-#' Hourly Statistics Computation
-#'
-#' The `hour_stat` function computes hourly statistics for given data,
-#' including the number of visits, total feed time, and total feed intake,
-#' grouped by location and hour. This function is designed for processing
-#' time-series data related to feeding or visit behaviors.
-#'
-#' @param data data.table, required.
-#'   The input data table which must contain the following columns:
-#'   `visit_time` (POSIXct), `location` (character), `duration` (numeric, in minutes),
-#'   and `feed_intake` (numeric, in grams).
-#' @param target_date Date, optional.
-#'   The specific date for which the data should be filtered. Defaults to 35 days prior
-#'   to today (using `Sys.Date() - 35`).
-#'
-#' @return A list of data.tables containing hourly statistics:
-#' \itemize{
-#'   \item `visit_n`: Number of visits per location per hour.
-#'   \item `feed_time`: Total feed time in hours per location per hour.
-#'   \item `feed_intake`: Total feed intake in kilograms per location per hour.
-#' }
-#' 
-#' @export
-#' 
-#' @note
-#' The function requires that the `data` table contains specific columns named
-#' `visit_time`, `location`, `duration`, and `feed_intake`. The `visit_time` should
-#' be in POSIXct format for accurate processing. 
-hour_stat <- function(data, target_date = Sys.Date() - 1) {
-  visit_time <- location <- duration <- . <- n <- feedintake <- NULL
-  # Validate if required columns exist
-  required_cols <- c("visit_time", "location", "duration", "feed_intake")
-  if (!all(required_cols %in% names(data))) {
-    stop("Data is missing one or more of the required columns: visit_time, location, duration, feed_intake")
-  }
-
-  # Ensure the target_date is a Date object
-  if (!inherits(target_date, "Date")) {
-    target_date <- as.Date(target_date)
-  }
-
-  # Process and filter data for the target date
-  processed_data <- data[, `:=`(date = as.Date(visit_time),
-                                hour = data.table::hour(visit_time))
-  ][date == target_date][!is.na(location)][, `:=`(n = .N, feed_time = sum(duration)/60, feedintake = sum(feed_intake)/1000), by = .(location, hour)
-  ][, .(location, date, hour, n, feed_time, feedintake)][, unique(.SD)]
-
-  # Round numeric columns to two decimal places
-  numeric_cols <- grep("feed_time|feedintake", names(processed_data), value = TRUE)
-  data_temp <- processed_data[, (numeric_cols) := lapply(.SD, function(x) round(x, digits = 2)), .SDcols = numeric_cols]
-
-  # Cast data for visualization or further analysis
-  visit_n <- data_temp[, dcast(.SD, location ~ hour, value.var = "n")]
-  feed_time <- data_temp[, dcast(.SD, location ~ hour, value.var = "feed_time")]
-  feed_intake <- data_temp[, dcast(.SD, location ~ hour, value.var = "feedintake")]
-
-  return(list(visit_n = visit_n, feed_time = feed_time, feed_intake = feed_intake))
-}
-```
-  
-```{r example-hour_stat}
-# Load CSV data
-data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
-print(hour_stat(data = data))
-```
-  
-  
 # table_monitor
 
-\`table_monitor\` serves as a complement to two other monitoring functions. It primarily aims to analyze and monitor, based on the CSV data from the past n days of measurement stations, the daily counts of missing records, extreme weight recordings, total feeding time at each measurement station, total feeding amount per pen per day, average weight per pen per day, and feed intake information in each hour.
+`table_monitor` serves as a complement to two other monitoring functions. It primarily aims to analyze and monitor, based on the CSV data from the past n days of measurement stations, the daily counts of missing records, extreme weight recordings, total feeding time at each measurement station, total feeding amount per pen per day, average weight per pen per day, and feed intake information in each hour.
 
 ```{r function-table_monitor}
 #' Table Monitor Function
@@ -1131,7 +486,7 @@ print(hour_stat(data = data))
 #' @param house_width character, optional.
 #'   A character string representing the house width. Default is "1".
 #' @param days integer, optional.
-#'   An integer representing the number of days for the analysis. Default is 7.
+#'   An integer representing the number of days for the analysis.
 #' @param ref_date Date, optional.
 #'   A Date object representing the reference date. Default is the current date 
 #'   (`Sys.Date()`).
@@ -1162,7 +517,7 @@ print(hour_stat(data = data))
 #' The `save_path` parameter must be a valid path ending with ".xlsx". Ensure that 
 #' the `data` parameter is a data frame and contains the necessary columns for 
 #' processing.
-table_monitor <- function(data, house_width = "1", days = 5, ref_date = Sys.Date(), save_path) {
+table_monitor <- function(data, house_width = "1", days, ref_date = Sys.Date(), save_path) {
   
   # Check parameters
   if (missing(data) || is.null(data)) stop("data cannot be NULL")
@@ -1382,6 +737,37 @@ head(res$feed_time_hour)
 head(res$feed_intake_hour)
 ```
 
+# monitor_all
+Combine the `fid_monitor()`, `station_monitor()`, and `table_monitor()` functions together. You can use `monitor_all()` to monitor all by hands.
+```{r function-monitor_all}
+#' Monitor all by hands
+#' 
+#' Combine the `fid_monitor`, `station_monitor`, and `table_monitor` functions together.
+#' 
+#'
+#' @param data data.frame, required. The input data frame containing the data to be processed.
+#' @param begin_date An optional Date object or character string specifying the beginning date for the data to be processed. If not provided, all dates in the data will be considered.
+#' @param house_width character, optional. A character string representing the house width. Default is "1".
+#' @param days integer, optional. An integer representing the number of days for the analysis.
+#' @param save_path character, required. A character string representing the path where the output file will be saved. 
+#'
+#' @return
+#' 
+#' @export
+monitor_all <- function(data, begin_date, house_width = "1", days, save_path) {
+  pptsdm::fid_monitor(data, begin_date, station_type = "nedap", save_path)
+  pptsdm::station_monitor(data, begin_date, station_type = "nedap", save_path)
+  pptsdm::table_monitor(data, house_width, days, ref_date = Sys.Date(), save_path)
+}
+```
+  
+```{r example-monitor_all}
+# Load CSV data
+data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
+monitor_all(data, begin_date = "2024-05-01", days = 5, save_path = "C:/Users/Dell/Downloads/test")
+```
+  
+
 # monitor_schedule
 
 You can use `monitor_schedule` to set when to run the `fid_monitor()`、`station_monitor()` and `table_monitor()`.
@@ -1427,12 +813,12 @@ monitor_schedule <- function(taskname, schedule, starttime, startdate, rscript_a
   dir.create(short_temp_path, showWarnings = FALSE)
   script_file <- file.path(short_temp_path, paste0(taskname, "_", sample(letters, 1), ".R"))
 
-  my_function <- function(csv_path, begin_date, house_width, days, ref_date, ...) {
+  my_function <- function(csv_path, begin_date, house_width, days, ...) {
     csv_files <- list.files(csv_path, full.names = T, pattern = ".csv", recursive = T)
     csv_data <- pptsda::import_csv(csv_files, package = "data.table")
     pptsdm::fid_monitor(data = csv_data, begin_date = begin_date, station_type = "nedap", ...)
     pptsdm::station_monitor(data = csv_data, begin_date = begin_date, station_type = "nedap", ...)
-    pptsdm::table_monitor(data = csv_data, house_width = house_width, days = days, ref_date = ref_date, ...)
+    pptsdm::table_monitor(data = csv_data, house_width = house_width, days = days, ref_date = Sys.Date(), ...)
   }
 
   # Save the arguments to a configuration file
@@ -1476,7 +862,6 @@ monitor_schedule(
   startdate = format(Sys.Date(), "%Y/%m/%d"),
   rscript_args = list(house_width = "1", 
                       days = 5,
-                      ref_date = Sys.Date(),
                       begin_date = "2024-05-01", 
                       csv_path = "C:/Users/Dell/Documents/projects/pptsdm_data",
                       save_path = "C:/Users/Dell/Downloads/test"))
@@ -1484,8 +869,651 @@ monitor_schedule(
 taskscheduleR::taskscheduler_delete("ppt_csv_monitor")
 ```
 
+# process_data
+`process_data()` is used to preprocess the read CSV data.
+```{r function-process_data}
+#' Process Data Frame or Data Table
+#' 
+#' This function performs various checks and transformations on a provided data frame or data table.
+#' It checks for necessary columns, correct data types, and performs various operations like filtering, 
+#' joining, and calculating sequences.
+#' 
+#' @param data A data frame or data table that must contain specific columns with specific data types.
+#'             Required columns are: "animal_number", "lifenumber", "responder", "location", "visit_time",
+#'             "duration", "state", "weight", "feed_intake".
+#'
+#' @return Returns a modified data table with computed sequence features and potentially other transformations.
+#'         The function ensures that columns are of the correct type and that data integrity is maintained.
+#' 
+#' @export
+#' 
+#' @note This function will stop execution and produce an error if the input data does not meet the expected
+#'       requirements, such as missing columns or incorrect data types.
+process_data <- function(data) {
+  if (missing(data)) stop("Missing data frame or data table!")
+  if (!is.data.frame(data) && !inherits(data, "data.table")) stop("Data is not a data frame or data table!")
+  #if (!is.data.frame(data) && !class(data) == 'data.table')
+  # Check for required columns
+  required_columns <- c("animal_number", "lifenumber", "responder", "location", "visit_time", "duration", "state", "weight", "feed_intake")
+  missing_columns <- setdiff(required_columns, names(data))
+  if (length(missing_columns) > 0) stop(paste("Missing columns:", paste(missing_columns, collapse = ", ")))
+
+  # Check types for some columns
+  if (!is.numeric(data$animal_number) && !is.character(data$animal_number)) stop("'animal_number' must be numeric or character!")
+  if (!is.logical(data$lifenumber) && !is.character(data$lifenumber)) stop("'lifenumber' must be logical or character!")
+  if (!is.numeric(data$responder) && !is.character(data$responder)) stop("'responder' must be numeric or character!")
+  if (!is.numeric(data$location)) stop("'location' must be numeric!")
+  if (!is.character(data$visit_time) && !inherits(data$visit_time, "POSIXt")) stop("'visit_time' must be character or POSIXct!")
+  if (!is.numeric(data$duration)) stop("'duration' must be numeric!")
+  if (!is.numeric(data$state)) stop("'state' must be numeric!")
+  if (!is.numeric(data$weight)) stop("'weight' must be numeric!")
+  if (!is.numeric(data$feed_intake)) stop("'feed_intake' must be numeric!")
+
+  # Check if the data is a data.frame, if yes, then make a deep copy of the data and convert it into data.table
+  if (is.data.frame(data)) data <- data.table::as.data.table(data.table::copy(data))
+
+  responder <- weight <- . <- location <- N <- n <- location_maxn <- visit_time <- seq_days <- seq_in_day <- seq_in_location <- feed_intake <- NULL
+
+  # Filter out the data with NA in 'responder' column and remove duplicates
+  data_temp <- unique(data)[!is.na(responder)]
+
+  # Create a unique data.table for 'responder' and 'location'
+  unique_dt <- unique(data_temp[, .(responder, location)])
+
+  # Find duplicate 'responder's
+  dup_responders <- unique_dt[, .N, by = .(responder)][N > 1]
+
+  # Compute the number of records for each 'responder' and 'location'
+  num_records <- unique(data_temp[, `:=`(n, .N), .(responder, location)][, .(responder, location, n)])
+
+  # Set 'responder' as the key for join operations
+  data.table::setkey(dup_responders, responder)
+  data.table::setkey(num_records, responder)
+
+  # Perform left join operation on 'num_records' and 'dup_responders'
+  dup_records <- num_records[dup_responders]
+
+  # Modify the 'location' in the unique data.table for duplicate 'responder's
+  if(nrow(dup_responders) > 0) {
+    # Compute the 'location' with maximum number of records for each 'responder'
+    max_n_location <- num_records[, .(max_n = max(n), location_maxn = location[which.max(n)]), by = responder]
+
+    # Remove duplicates in 'max_n_location' after modifying 'location'
+    max_n_location <- unique(max_n_location)
+
+    # Perform left join operation on 'data_temp' and 'max_n_location' and update 'location' to 'location_maxn'
+    data_temp <- merge(data_temp, max_n_location, by = "responder", all.x = TRUE)[, location := location_maxn][, c("max_n", "location_maxn") := NULL]
+  }
+
+  # Preprocess data and compute sequence features
+  # Check the class of visit_time
+  if(is.character(data_temp$visit_time)) {
+    # If visit_time is a character vector, replace "/" with "-"
+    data_temp[, visit_time := gsub("/", "-", visit_time)]
+    data_pre <- data_temp[, `:=`(c("date", "time"), data.table::IDateTime(visit_time))]
+  } else {
+    # If visit_time is not a character vector, assume it's a datetime object
+    data_pre <- data_temp[, `:=`(c("date", "time"), data.table::IDateTime(visit_time))]
+  }
+  data_pre <- data_pre[data.table::CJ(date = tidyr::full_seq(date, 1)), on = .(date)  # Compute complete sequence of dates
+  ][order(date), `:=`(seq_days, .GRP), by = date  # Compute sequence number of days
+  ][order(visit_time), `:=`(seq_in_day, 1:.N), by = .(responder, date)  # Compute sequence number in day
+  ][order(visit_time), `:=`(seq_in_location, 1:.N), by = .(location, date)  # Compute sequence number in location
+  ][order(responder, visit_time)  # Order data by 'responder' and 'visit_time'
+  ][, .(responder, location, date, seq_days, seq_in_day, seq_in_location, feed_intake, weight)  # Keep only necessary columns #seq_in_location, seq_days, seq_in_day,, weight
+  ][, `:=` (responder = as.character(responder),  # Convert 'responder' and 'location' to character type
+            location = as.character(location),
+            feed_intake = as.numeric(feed_intake),
+            weight = as.numeric(weight))][!is.na(location)][]  # Convert 'weight' to numeric type
+  return(data_pre)
+}
+```
+  
+```{r example-process_data}
+# Load CSV data
+data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
+processed_data <- process_data(data = data)
+head(processed_data)
+```
+  
+  
+# house_weight
+`house_weight()` is primarily used to monitor the average weight of pigs in each barn.
+```{r function-house_weight}
+#' Calculate Mean Weight for Specified Location and Date Range
+#' 
+#' This function processes a dataset to extract weights by specified house (part of location), 
+#' calculates mean weights per house over a given number of days from a reference date, and 
+#' returns the data in a wide format with dates as rows and houses as columns.
+#' 
+#' @param data A data frame that must include the columns: "location", "date", and "weight".
+#' @param house_width A string indicating the number of characters to use from the 'location'
+#'                    column to create the 'house' identifier. Defaults to "1".
+#' @param days An integer specifying the number of days to include in the analysis
+#'                  back from the reference date.
+#' @param ref_date A Date object used as the reference date for filtering data. 
+#'                 Defaults to the current system date.
+#'
+#' @return Returns a data frame in wide format where each column represents a house
+#'         and each row represents a date within the specified range. Values are mean weights
+#'         (in kilograms, rounded to two decimal places) for each house-date combination.
+#' 
+#' @export
+#'
+#' @note If 'data' does not contain the necessary columns, the function will stop with an error message.
+#'       It is crucial to ensure that the 'location' and 'date' columns are formatted correctly.
+house_weight <- function(data, house_width = "1", days, ref_date = Sys.Date()) {
+  house <- location <- mean_weight <- weight <- . <- NULL
+  data <- process_data(data)
+
+  # Validate necessary columns presence
+  necessary_cols <- c("location", "date", "weight")
+  if (!all(necessary_cols %in% names(data))) {
+    stop("Data must include the necessary columns: location, date, and weight.")
+  }
+  
+  # Create 'house' column by extracting specified width from 'location'
+  data[, house := paste0("house_", substr(location, 1, house_width))]
+
+  # Filter data for the last specified number of days from a reference date
+  filtered_data <- data[date >= (ref_date - days) & date < ref_date, ]
+
+  # Calculate mean weight per location and date, adjust weight scale
+  stat_data <- filtered_data[, mean_weight := mean(weight) / 1000, by = .(house, date)
+  ][, .(date, house, mean_weight)
+  ][, unique(.SD)][, date := format(date, "%m-%d")]
+
+  # Remove duplicate entries and reshape data to wide format
+  result_data <- dcast(stat_data, date ~ house, value.var = "mean_weight")
+
+  # Round numeric columns to two decimal places
+  numeric_cols <- setdiff(names(result_data), "date")
+  result_data[, (numeric_cols) := lapply(.SD, round, digits = 2), .SDcols = numeric_cols][]
+
+  return(result_data)
+}
+```
+  
+```{r example-house_weight}
+# Load CSV data
+data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
+head(house_weight(data = data, days = 5))
+```
+  
+# responder_na
+`responder_na()` primarily monitors the *访问组* for each station.
+```{r function-responder_na}
+#' Analyze Missing Responder Data
+#'
+#' This function processes a dataset to identify and summarize the occurrences of NA values in the
+#' 'responder' column within a specified number of days from a reference date. It converts dates,
+#' removes duplicates, and aggregates NA counts per location and date. The output is presented in
+#' a wide format with locations as rows and formatted dates as columns.
+#'
+#' @param data A data table that must include the columns: 'location', 'date', 'visit_time', and 'responder'.
+#' @param days An integer specifying the number of days to include in the analysis back from the reference date.
+#' @param ref_date A Date object used as the reference date for filtering data; defaults to the current system date.
+#'
+#' @return Returns a data table in wide format where each row represents a location and each column a date.
+#'         Entries are the counts of NAs found in the 'responder' column for that location and date. 
+#'         An additional 'total_nas' column shows the sum of NAs across all dates for each location.
+#'
+#' @export
+#' 
+#' @note This function stops execution and produces an error if the input data does not contain all the required columns.
+#'       Ensure that 'location', 'date', 'visit_time', and 'responder' columns are formatted correctly and present.
+responder_na <- function(data, days, ref_date = Sys.Date()) {
+  visit_time <- n <- responder <- . <- location <- sum_n <- total_nas <- NULL
+  data <- copy(data)
+  # Convert visit_time to date and time columns and filter data by the given date range
+  processed_data <- data[, `:=`(c("date", "time"), data.table::IDateTime(visit_time))
+  ][date >= (ref_date - days) & date < ref_date
+  ][, unique(.SD)  # Remove duplicate entries
+  ][, n := fifelse(is.na(responder), 1L, 0L), by = .(location, date)  # Count NAs in responder column
+  ][, sum_n := sum(n), by = .(location, date)  # Sum the NA counts by location and date
+  ][, date := format(date, format="%m-%d")  # Format date for consistency in output
+  ][, .(location, date, sum_n)  # Select necessary columns
+  ][, unique(.SD)  # Remove any duplicates after processing
+  ]
+
+  # Reshape the processed data to wide format using location as rows and dates as columns
+  wide_data <- dcast(processed_data, location ~ date, value.var = "sum_n")
+  wide_data[, location := as.character(location)]  # Convert 'location' to character for consistent data types
+
+  # Calculate the total number of NAs for each location across all date columns
+  numeric_cols <- setdiff(names(wide_data), "location")
+  wide_data[, total_nas := rowSums(.SD, na.rm = TRUE), .SDcols = numeric_cols][]
+
+  return(wide_data)
+}
+```
+  
+```{r example-responder_na}
+# Load CSV data
+data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
+print(responder_na(data = data, days = 5))
+```
+  
+# extreme_time_n
+`extreme_time_n()` primarily monitors abnormal weight records, access frequency, and access times.
+```{r function-extreme_time_n}
+#' Compute Outlier Statistics and Time-based Metrics
+#'
+#' This function analyzes weight data to identify outliers using the Interquartile Range (IQR) method,
+#' and computes time-based metrics for data entries within a specified number of days from a reference date.
+#' It also reshapes the results into a wide format, separating the percentage of weight outliers and other metrics
+#' like count of observations and total duration by location and date.
+#'
+#' @param data data.table, required.
+#'   The input data table which must contain the following columns: `visit_time` (POSIXct), `location` (character),
+#'   `responder` (character), `weight` (numeric, in grams), and `duration` (numeric, in seconds).
+#' @param days integer, required.
+#'   The number of days before the reference date to include in the analysis.
+#' @param ref_date Date, optional.
+#'   The specific date to use as the reference for filtering data; defaults to the current system date.
+#'
+#' @return A list of two data.tables:
+#' \itemize{
+#'   \item `weight_outlier`: A data table in wide format showing the percentage of weight outliers
+#'                           per location across the specified dates.
+#'   \item `feedintake`: A data table in wide format showing the count of observations and total
+#'                       duration in hours per location across the specified dates.
+#' }
+#' 
+#' @export
+#' 
+#' @note
+#' The function assumes that the input data has all the required columns. The 'visit_time' should
+#' be in POSIXct format to correctly convert to dates. Make sure the data is pre-cleaned to avoid errors
+#' due to missing values, especially in the 'location' and 'responder' columns.
+extreme_time_n <- function(data, days, ref_date = Sys.Date()) {
+  visit_time <- location <- . <- responder <- weight <- duration <- outlier <- NULL
+  data <- data.table::copy(data)
+  # Ensure 'visit_time' is a proper date-time format
+  data_temp <- data[, `:=`(c("date", "time"), data.table::IDateTime(visit_time))
+  ][date >= (ref_date - days) & date <= ref_date
+  ][, unique(.SD)
+  ][, date := format(date, format = "%m-%d")
+  ][!is.na(location), .(location, date, responder, weight, duration)][!is.na(responder)]
+
+  # Calculate Interquartile Range (IQR) and identify outliers
+  data_temp[, outlier := {
+    Q1 <- quantile(weight, 0.25, na.rm = TRUE)
+    Q3 <- quantile(weight, 0.75, na.rm = TRUE)
+    IQR <- Q3 - Q1
+    (weight < (Q1 - 1.5 * IQR)) | (weight > (Q3 + 1.5 * IQR))
+  }, by = .(location, date, responder)]
+
+  # Compute statistics for each location and date
+  extreme_stats <- data_temp[, .(
+    extreme_weight = 100 * sum(outlier) / .N,   # Percentage of outliers
+    n = .N,                                 # Total count of observations
+    time = sum(duration) / 3600             # Total duration in hours
+  ), by = .(location, date)]
+
+  # Reshape data to wide format
+  extreme_stats_wide <- dcast(extreme_stats, location ~ date, value.var = "extreme_weight")
+  n_time_wide <- dcast(extreme_stats, location ~ date, value.var = c("n", "time"))
+
+  # Round numeric columns to two decimal places
+  numeric_cols <- setdiff(names(extreme_stats_wide), c("location"))
+  extreme_stats_wide[, (numeric_cols) := lapply(.SD, round, digits = 2), .SDcols = numeric_cols]
+  numeric_cols <- grep("time", names(n_time_wide), value = TRUE)
+  n_time_wide[, (numeric_cols) := lapply(.SD, round, digits = 2), .SDcols = numeric_cols]
+  return(list(weight_outlier = extreme_stats_wide, feedintake = n_time_wide))
+}
+```
+  
+```{r example-extreme_time_n}
+# Load CSV data
+data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
+print(extreme_time_n(data = data, days = 5))
+```
+  
+  
+# low_feedintake
+`low_feedintake()` primarily monitors individuals with low feed intake.
+```{r function-low_feedintake}
+#' Analyze Low Feed Intake
+#'
+#' This function processes a dataset to calculate the total feed intake per location, date,
+#' and responder. It then identifies days where the sum of feed intake is below a threshold,
+#' specifically less than 0.5 kg. The results are returned in a wide format with each location
+#' and responder combination as a row and dates as columns.
+#'
+#' @param data A data table that must include the columns: 'location', 'date', 'responder', 
+#'             and 'feed_intake'. The 'visit_time' must be able to be converted to IDateTime format.
+#' @param days An integer specifying the number of days to include in the analysis up to and including
+#'             the reference date.
+#' @param ref_date A Date object used as the reference date for filtering data; defaults to the current
+#'                 system date.
+#'
+#' @return Returns a data table in wide format where each row represents a combination of location and
+#'         responder, columns are dates, and values are the summed feed intake that are below the threshold
+#'         of 0.5 kg. Also includes a 'sum_feedintake' column which is the total sum of feed intake across
+#'         the period for each row.
+#' 
+#' @export
+#' 
+#' @note This function assumes that the input data has been preprocessed to include the necessary columns.
+#'       It will stop and raise an error if the 'visit_time' cannot be converted to date and time format.
+low_feedintake <- function(data, days, ref_date = Sys.Date()) {
+  visit_time <- . <- feed_intake <- location <- responder <- sum_feedintake <- NULL
+  data <- data.table::copy(unique(data))
+  processed_data <- data[, `:=`(c("date", "time"), data.table::IDateTime(visit_time))
+  ][date >= (ref_date - days) & date <= ref_date
+  ][, .(sum_feedintake = sum(feed_intake) / 1000), by = .(location, date, responder)][
+    , date := format(date, "%m-%d")]
+
+  # Filter entries where 'sum_feedintake' is less than 0.5
+  processed_data <- processed_data[sum_feedintake < 0.5]
+
+  # Convert to wide format
+  data_wide <- dcast(processed_data, location + responder ~ date, value.var = "sum_feedintake")
+  # Calculate sum across numeric columns for each row and round the results
+  numeric_cols <- setdiff(names(data_wide), c("location", "responder"))
+  res <- data_wide[, sum_feedintake := round(rowSums(.SD, na.rm = TRUE), digits = 2), .SDcols = numeric_cols][]
+  # Sort by 'sum_feed_intake'
+  setorder(res, responder, -sum_feedintake, na.last = TRUE)  # Sort in descending order
+
+  return(res)
+}
+```
+  
+```{r example-low_feedintake}
+# Load CSV data
+data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
+print(low_feedintake(data = data, days = 5))
+```
+  
+# all_feedintake
+`all_feedintake()` is used to monitor the total daily feed intake for each station.
+```{r function-all_feedintake}
+#' Calculate Total Feed Intake Per Location
+#'
+#' This function aggregates total feed intake across a specified date range for each location.
+#' The feed intake data is first summed per location and date, then transformed to kilograms
+#' and formatted to wide format with locations as rows and dates as columns.
+#'
+#' @param data A data table that must include at least 'location', 'date', 'visit_time', 
+#'             and 'feed_intake' columns. 'visit_time' should be convertible to date and time.
+#' @param days An integer specifying the number of days to include in the analysis up to and including
+#'             the reference date.
+#' @param ref_date A Date object used as the reference date for filtering data; defaults to the current
+#'                 system date.
+#'
+#' @return Returns a data table in wide format with locations as rows and formatted dates as columns.
+#'         Each entry is the summed feed intake for that date and location, converted to kilograms.
+#'         An additional 'all_feedintake' column is included, showing the total feed intake for each
+#'         location across all dates.
+#' 
+#' @export
+#' 
+#' @note This function expects that the input data is pre-cleaned and correctly formatted. 
+#'       Errors may occur if 'visit_time' cannot be properly converted.
+all_feedintake <- function(data, days, ref_date = Sys.Date()) {
+  visit_time <- . <- feed_intake <- location <- NULL
+  data <- data.table::copy(unique(data))
+  processed_data <- data[, `:=`(c("date", "time"), data.table::IDateTime(visit_time))
+  ][date >= (ref_date - days) & date <= ref_date,
+    .(sum_feedintake = sum(feed_intake) / 1000),
+    by = .(location, date)][, date := format(date, "%m-%d")][, location := as.character(location)]
 
 
+  # Convert to wide format
+  res <- dcast(processed_data, location ~ date, value.var = "sum_feedintake")
+  numeric_cols <- setdiff(names(res), "location")
+  res[, all_feedintake := round(rowSums(.SD, na.rm = TRUE), 2), .SDcols = numeric_cols]
+  res[, (numeric_cols) := lapply(.SD, function(x) round(x, digits = 2)), .SDcols = numeric_cols][]
+  # Return processed data table
+  return(res)
+}
+```
+  
+```{r example-all_feedintake}
+# Load CSV data
+data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
+print(all_feedintake(data = data, days = 5))
+```
+  
+# number_location
+`number_location()` is used to calculate the number of pigs at each station.
+```{r function-number_location}
+#' Count Responders by Location and Date
+#'
+#' This function processes a dataset to calculate the number of responders per specified 'house'
+#' (a subset of the 'location' field) for each date within a specified number of days from a reference date.
+#' The data is first processed to ensure the 'date' column is in Date format, 'house' is extracted from
+#' 'location', and duplicates are removed. The output is provided in wide format with dates as rows
+#' and houses as columns.
+#'
+#' @param data A data table that must include the columns: 'location', 'date', 'responder'.
+#'             The function expects that 'date' can be converted into Date format.
+#' @param house_width An integer specifying the number of characters from the start of the 'location'
+#'                    field to define a 'house'.
+#' @param days An integer specifying the number of days to include in the analysis back from the
+#'             reference date.
+#' @param ref_date A Date object used as the reference date for filtering data; defaults to the current
+#'                 system date.
+#'
+#' @return Returns a data table in wide format where each row represents a date and each column a house.
+#'         Each entry is the count of responders for that house and date.
+#' 
+#' @export
+#' 
+#' @note This function depends on another function 'process data' to first ensure the data is in the correct
+#'       format. It is crucial that the input data and the 'process_data' function are properly configured
+#'       to handle the data correctly.
+number_location <- function(data, house_width, days, ref_date = Sys.Date()) {
+  house <- location <- . <- responder <- NULL
+  # Ensure date column is in Date format
+  data <- process_data(data)
+
+  # Step 1: Create 'house' column by extracting specified characters from 'location'
+  # Step 2: Filter data within the last 'days' from 'ref_date'
+  # Step 3: Remove duplicate rows based on 'house', 'date', 'responder'
+  # Consolidate these steps to streamline operations
+  data <- data[, house := substr(location, 1, house_width)
+  ][date >= (ref_date - days) & date <= ref_date
+  ][, date := format(date, "%m-%d")][, .(house, date, responder)
+  ][, .N, by = .(house, date, responder)]
+
+  # Step 4: Group by 'house' and 'date' to count the number of responders
+  summary_data <- data[, .(count = .N), by = .(house, date)]
+
+  # Step 5: Reshape the data into wide format using 'dcast'
+  # 'date' as rows, 'house' as columns, and 'count' as values
+  result_data <- dcast(summary_data, date ~ house, value.var = "count")
+
+  return(result_data)
+}
+```
+  
+```{r example-number_location}
+# Load CSV data
+data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
+print(number_location(data = data, house_width = "1", days = 5))
+```
+  
+# house_feedintake
+`house_feedintake()` is used to calculate the total feed intake at each measurement station.
+```{r function-house_feedintake}
+#' Calculate Feed Intake by House and Date
+#'
+#' This function calculates the total feed intake for each 'house' (a subset of 'location') over a specified
+#' date range, and presents the data in a wide format. The function preprocesses the data to ensure proper 
+#' formatting and then groups by 'house' and 'date' to summarize feed intake, which is then converted to kilograms.
+#'
+#' @param data A data table that must include at least 'location', 'date', and 'feed_intake' columns.
+#'             It is expected that the data is already in a suitable format for processing.
+#' @param house_width An integer specifying the number of characters from the start of the 'location'
+#'                    field to define a 'house'.
+#' @param days An integer specifying the number of days to include in the analysis up to and including
+#'             the reference date.
+#' @param ref_date A Date object used as the reference date for filtering data; defaults to the current
+#'                 system date.
+#'
+#' @return Returns a data table in wide format where each row represents a date and each column a house.
+#'         The entries are the summed feed intake for each house on each date, in kilograms. An additional
+#'         column 'all_feedintake' shows the total feed intake across all houses for each date.
+#' 
+#' @export
+#' 
+#' @note This function depends on another function 'process_data' to preprocess the data. Errors may occur if
+#'       the input data or the 'process_data' function are not correctly configured to handle the data.
+house_feedintake <- function(data, house_width, days, ref_date = Sys.Date()) {
+  house <- location <- . <- feed_intake <- NULL
+
+  data <- process_data(data)
+
+  # Step 1: Create 'house' from the first characters of 'location' and filter by date
+  data[, house := substr(location, 1, house_width)]
+  filtered_data <- data[date >= (ref_date - days) & date <= ref_date][, date := format(date, "%m-%d")]
+
+  # Step 2: Calculate sum of 'feed_intake' per 'house' and 'date', dividing by 1000
+  summarized_data <- filtered_data[, .(sum_feed_intake = sum(feed_intake) / 1000), by = .(house, date)]
+
+  # Step 3: Remove duplicates if any exist
+  unique_data <- unique(summarized_data, by = c("house", "date"))
+
+  # Step 4: Reshape data to wide format
+  wide_data <- dcast(unique_data, date ~ house, value.var = "sum_feed_intake")
+
+  # Step 5: Calculate total feed intake across all houses for each date
+  numeric_cols <- setdiff(names(wide_data), "date")
+  wide_data[, all_feedintake := rowSums(.SD, na.rm = TRUE), .SDcols = numeric_cols]
+
+  # Round numeric columns to two decimal places
+  numeric_cols <- setdiff(names(wide_data), "date")
+  wide_data[, (numeric_cols) := lapply(.SD, round, digits = 2), .SDcols = numeric_cols][]
+
+  return(wide_data)
+}
+```
+  
+```{r example-house_feedintake}
+# Load CSV data
+data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
+print(house_feedintake(data = data, house_width = "1", days = 5))
+```
+  
+    
+```{r function-merge_data}
+#' Merge Data and Calculate Mean Feed Intake
+#'
+#' This function merges two datasets based on the 'date' column and calculates the mean feed intake
+#' for each common house present in both datasets. It also handles the renaming of overlapping columns
+#' and rounds numerical values for better presentation.
+#'
+#' @param feedintake A data frame containing feed intake data with a 'date' column.
+#' @param n A data frame containing count data with a 'date' column.
+#'
+#' @return Returns a merged data frame with all rows included from both input frames. Suffixes "_feed" 
+#'         and "_n" are added to overlapping column names from the 'feedintake' and 'n' datasets respectively. 
+#'         The function also adds new columns representing the mean feed intake per common house.
+#' 
+#' @note It is crucial to ensure that both data frames include a 'date' column for the merge operation.
+#'       The function assumes that all numeric values need to be rounded to two decimal places.
+merge_data <- function(feedintake, n) {
+  . <- NULL
+  # Merge hh2 and hh by "date", including all rows and adding suffixes to overlapping column names
+  res3 <- merge(feedintake, n, by = "date", all = TRUE, suffixes = c("_feed", "_n"))
+
+  # Extract column names exclusive to hh2 (excluding "date" and "sum_feed_intake")
+  cols_feed <- names(feedintake)[!names(n) %in% c("date", "all_feedintake")]
+
+  # Extract column names exclusive to hh (excluding "date")
+  cols_n <- names(n)[!names(n) %in% c("date")]
+
+  # Identify common columns between hh2 and hh for calculating mean feed intake
+  intersect_house <- intersect(cols_feed, cols_n)
+
+  # Append suffixes to column names for the merged table
+  cols_feed_name <- paste0(intersect_house, "_feed")
+  cols_n_name <- paste0(intersect_house, "_n")
+
+  # Calculate mean feed intake for each common house and assign it to new columns
+  res3[, paste0(intersect_house, "_mean_feed") := Map(function(feed, n) res3[[feed]] / res3[[n]],
+                                                      cols_feed_name, cols_n_name)]
+
+  # Identify and round double columns to three decimal places
+  double_cols <- names(res3)[sapply(res3, is.double)]
+  res3[, (double_cols) := lapply(.SD, function(x) round(x, digits = 2)), .SDcols = double_cols]
+
+  return(res3)
+}
+```
+  
+# hour_stat
+`hour_stat()` is used to monitor the number of visits, visit times, and feed intake of pigs at each measurement station for every hour within a 24-hour period.
+```{r function-hour_stat}
+#' Hourly Statistics Computation
+#'
+#' The `hour_stat` function computes hourly statistics for given data,
+#' including the number of visits, total feed time, and total feed intake,
+#' grouped by location and hour. This function is designed for processing
+#' time-series data related to feeding or visit behaviors.
+#'
+#' @param data data.table, required.
+#'   The input data table which must contain the following columns:
+#'   `visit_time` (POSIXct), `location` (character), `duration` (numeric, in minutes),
+#'   and `feed_intake` (numeric, in grams).
+#' @param target_date Date, optional.
+#'   The specific date for which the data should be filtered. Defaults to 35 days prior
+#'   to today (using `Sys.Date() - 35`).
+#'
+#' @return A list of data.tables containing hourly statistics:
+#' \itemize{
+#'   \item `visit_n`: Number of visits per location per hour.
+#'   \item `feed_time`: Total feed time in hours per location per hour.
+#'   \item `feed_intake`: Total feed intake in kilograms per location per hour.
+#' }
+#' 
+#' @export
+#' 
+#' @note
+#' The function requires that the `data` table contains specific columns named
+#' `visit_time`, `location`, `duration`, and `feed_intake`. The `visit_time` should
+#' be in POSIXct format for accurate processing. 
+hour_stat <- function(data, target_date = Sys.Date() - 1) {
+  visit_time <- location <- duration <- . <- n <- feedintake <- NULL
+  # Validate if required columns exist
+  required_cols <- c("visit_time", "location", "duration", "feed_intake")
+  if (!all(required_cols %in% names(data))) {
+    stop("Data is missing one or more of the required columns: visit_time, location, duration, feed_intake")
+  }
+
+  # Ensure the target_date is a Date object
+  if (!inherits(target_date, "Date")) {
+    target_date <- as.Date(target_date)
+  }
+
+  # Process and filter data for the target date
+  processed_data <- data[, `:=`(date = as.Date(visit_time),
+                                hour = data.table::hour(visit_time))
+  ][date == target_date][!is.na(location)][, `:=`(n = .N, feed_time = sum(duration)/60, feedintake = sum(feed_intake)/1000), by = .(location, hour)
+  ][, .(location, date, hour, n, feed_time, feedintake)][, unique(.SD)]
+
+  # Round numeric columns to two decimal places
+  numeric_cols <- grep("feed_time|feedintake", names(processed_data), value = TRUE)
+  data_temp <- processed_data[, (numeric_cols) := lapply(.SD, function(x) round(x, digits = 2)), .SDcols = numeric_cols]
+
+  # Cast data for visualization or further analysis
+  visit_n <- data_temp[, dcast(.SD, location ~ hour, value.var = "n")]
+  feed_time <- data_temp[, dcast(.SD, location ~ hour, value.var = "feed_time")]
+  feed_intake <- data_temp[, dcast(.SD, location ~ hour, value.var = "feedintake")]
+
+  return(list(visit_n = visit_n, feed_time = feed_time, feed_intake = feed_intake))
+}
+```
+  
+```{r example-hour_stat}
+# Load CSV data
+data <- data.table::fread("C:/Users/Dell/Documents/projects/pptsdm_data/ppt_monitor_test_data.csv")
+print(hour_stat(data = data))
+```
+  
+  
 That's it ! This the end of the documented story of our package. All components are there.
 
 

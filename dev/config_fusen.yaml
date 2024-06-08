@@ -9,6 +9,7 @@ station_pig_monitor.Rmd:
   - R/house_feedintake.R
   - R/house_weight.R
   - R/low_feedintake.R
+  - R/monitor_all.R
   - R/monitor_schedule.R
   - R/number_location.R
   - R/process_data.R
