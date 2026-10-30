@@ -7,6 +7,9 @@ test_that("plots for every type", {
     expect_equal(p$location, c("101", "102"))
     expect_true(all(vapply(p$plot, ggplot2::is.ggplot, logical(1))))
     expect_true(all(p$width > 0 & p$height > 0))
+    # only ASCII text, so that every graphics device can draw the plots
+    labs <- unlist(lapply(p$plot, function(g) c(g$labels$title, g$labels$subtitle)))
+    expect_false(any(grepl("[^ -~]", labs)))
   }
   expect_error(plot_monitor(mon, "trend", locations = "999"), "Unknown station")
   expect_error(plot_monitor(list()), "run_monitor")

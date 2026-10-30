@@ -118,7 +118,7 @@ plot_trend_one <- function(x, l) {
     date_scale(s) +
     ggplot2::labs(x = NULL, y = NULL, title = paste("Station", l),
                   subtitle = paste0(format(s$start_date), " to ", format(s$end_date),
-                                    if (nrow(down) > 0L) " \u00b7 red: no visits")) +
+                                    if (nrow(down) > 0L) "; red: no visits")) +
     pptm_theme() +
     ggplot2::theme(strip.placement = "outside",
                    strip.text.y.left = ggplot2::element_text(angle = 0, hjust = 1),
@@ -129,7 +129,7 @@ plot_trend_one <- function(x, l) {
 plot_intake_one <- function(x, l) {
   s <- x$settings
   d <- x$pigs[location == l]
-  title <- paste("Station", l, "\u00b7 feed intake per pig")
+  title <- paste("Station", l, "- feed intake per pig")
   if (nrow(d) == 0L) {
     return(list(plot = empty_plot(title, "No identified pig in the window"),
                 width = 16, height = 6))
@@ -158,7 +158,7 @@ plot_intake_one <- function(x, l) {
   }
   p <- p + date_scale(s) +
     ggplot2::labs(x = NULL, y = NULL, title = title,
-                  subtitle = paste0("\u00d7 no visit \u00b7 \u25cb below ", format(s$low_feed_kg), " kg")) +
+                  subtitle = paste0("x: no visit; o: below ", format(s$low_feed_kg), " kg")) +
     pptm_theme() +
     ggplot2::theme(panel.grid = ggplot2::element_blank(), legend.position = "right")
   list(plot = p, width = plot_width(s$days) + 3,
@@ -168,7 +168,7 @@ plot_intake_one <- function(x, l) {
 plot_weight_one <- function(x, l) {
   s <- x$settings
   d <- x$visits[location == l & identified == TRUE & !is.na(weight)]
-  title <- paste("Station", l, "\u00b7 recorded body weights")
+  title <- paste("Station", l, "- recorded body weights")
   if (nrow(d) == 0L) {
     return(list(plot = empty_plot(title, "No body weight in the window"), width = 16, height = 6))
   }
@@ -200,7 +200,7 @@ plot_hours_one <- function(x, l) {
     ggplot2::scale_fill_manual(values = pptm_palette(3), guide = "none") +
     ggplot2::scale_x_continuous(breaks = 0:23, expand = ggplot2::expansion(add = 0.5)) +
     ggplot2::labs(x = "Hour of the day", y = NULL,
-                  title = paste("Station", l, "\u00b7 hours of", format(s$end_date))) +
+                  title = paste("Station", l, "- hours of", format(s$end_date))) +
     pptm_theme() +
     ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 0, hjust = 0.5),
                    strip.placement = "outside",
