@@ -1,27 +1,42 @@
-station_pig_monitor.Rmd:
-  path: dev/station_pig_monitor.Rmd
+flat_tidypptsdm.Rmd:
+  path: dev/flat_tidypptsdm.Rmd
   state: active
   R:
-  - R/all_feedintake.R
-  - R/extreme_time_n.R
-  - R/fid_monitor.R
-  - R/hour_stat.R
-  - R/house_feedintake.R
-  - R/house_weight.R
-  - R/low_feedintake.R
-  - R/monitor_all.R
-  - R/monitor_schedule.R
-  - R/number_location.R
-  - R/process_data.R
-  - R/responder_na.R
-  - R/station_monitor.R
-  - R/table_monitor.R
-  tests: []
-  vignettes: vignettes/basic-usage.Rmd
+  - R/utils.R
+  - R/alerts.R
+  - R/monitor_hours.R
+  - R/monitor_houses.R
+  - R/monitor_pigs.R
+  - R/monitor_stations.R
+  - R/plot_monitor.R
+  - R/run_monitor.R
+  - R/save_monitor_plots.R
+  - R/schedule_monitor.R
+  - R/wide_table.R
+  - R/write_monitor_report.R
+  - R/write_monitor_tables.R
+  - R/re-exported-from-tidypptsda.R
+  tests:
+  - tests/testthat/test-utils.R
+  - tests/testthat/test-run_monitor.R
+  - tests/testthat/test-monitor_stations.R
+  - tests/testthat/test-monitor_houses.R
+  - tests/testthat/test-monitor_pigs.R
+  - tests/testthat/test-monitor_hours.R
+  - tests/testthat/test-alerts.R
+  - tests/testthat/test-wide_table.R
+  - tests/testthat/test-plot_monitor.R
+  - tests/testthat/test-save_monitor_plots.R
+  - tests/testthat/test-write_monitor_report.R
+  - tests/testthat/test-write_monitor_tables.R
+  - tests/testthat/test-schedule_monitor.R
+  vignettes: vignettes/get-started.Rmd
   inflate:
-    flat_file: dev/station_pig_monitor.Rmd
-    vignette_name: Basic Usage
-    open_vignette: true
-    check: true
+    flat_file: dev/flat_tidypptsdm.Rmd
+    vignette_name: Get started
+    open_vignette: false
+    check: false
     document: true
-    overwrite: ask
+    overwrite: 'yes'
+    clean: ask
+    codecov: false

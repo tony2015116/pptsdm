@@ -1,0 +1,134 @@
+---
+title: "快速入门"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{快速入门}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 9,
+                      fig.height = 6, out.width = "100%")
+```
+
+tidypptsdm 用于种猪性能测定期间的**日常巡检**：每天看一眼测定站（NEDAP、FIRE）的数据，回答几个问题——每台测定站都在正常记录吗？耳标读得到吗？每头猪都还在吃料吗？最近几天的采食量和体重怎么变化？
+
+读取和预处理交给 [tidypptsda](https://tony2015116.github.io/tidypptsda/)；测定结束后计算 ADG、ADFI、FCR 也用 tidypptsda。tidypptsdm 只管测定期间的每日监控。
+
+```{r setup, message = FALSE}
+library(tidypptsdm)
+```
+
+## 1. 整体流程
+
+| 步骤 | 函数 | 作用 |
+|---|---|---|
+| 1 | `run_monitor()` | 读取并预处理数据，计算最近 `days` 天的各张日表和最后一天的警报 |
+| 2 | `write_monitor_report()` | 写出 HTML 报告，按测定站逐页浏览 |
+| 2 | `write_monitor_tables()` | 写出带色阶的 Excel 工作簿（或 CSV） |
+| 3 | `schedule_monitor()` | 每天定时自动运行以上步骤 |
+
+单独的表和图：`monitor_stations()`、`monitor_houses()`、`monitor_pigs()`、`monitor_hours()`、`wide_table()`、`plot_monitor()`、`save_monitor_plots()`。
+
+## 2. 输入数据
+
+所有函数都接受以下任一种输入，内部会自动调用 `read_station()` 和 `prep_visits()`：
+
+- 导出文件所在的**文件夹**或文件路径，如 `run_monitor("D:/nedap/exports")`；
+- 已读入 R 的原始导出数据，如示例数据 `tidypptsda::nedap`、`tidypptsda::fire`；
+- `read_station()` 或 `prep_visits()` 的结果。
+
+预处理后两种测定站的列名和单位一致：采食量 g、体重 kg（0 视为未称重）、时长 s；没有读到耳标的访问保留下来，标记为 `identified = FALSE`；转栏的猪归到正确的测定站。函数不会修改传入的数据。
+
+列名与默认格式不同的导出文件，用 `station_format()` 写一个格式文件，再传给 `read_station(format = )`，详见 tidypptsda 的[《读取数据》](https://tony2015116.github.io/tidypptsda/articles/data-zh.html)。
+
+## 3. 一次巡检
+
+```{r}
+mon <- run_monitor(tidypptsda::nedap, days = 7)
+```
+
+监控窗口是截至 `end_date` 的 `days` 天（含首尾）。`end_date` 默认是数据中的最后一天；如果最后一天就是今天，则取昨天，因为白天导出的数据当天还不完整。也可以指定，如 `end_date = "2024-05-20"`。
+
+结果是一个列表：
+
+```{r}
+names(mon)
+```
+
+| 元素 | 内容 |
+|---|---|
+| `stations` | 每台测定站每天一行：猪数、访问次数、未识别访问、占用时间、采食量、体重、体重异常值比例 |
+| `houses` | 每栋每天一行（栋 = 测定站编号的前 `house_width` 个字符） |
+| `pigs` | 每头猪每天一行，没有访问的日子也在，`status` 为 `ok`、`low_feed` 或 `no_visit` |
+| `pig_summary` | 每头猪一行：窗口内的低采食天数、无访问天数、最后一天的采食量和状态等 |
+| `hours` | 最后一天每台测定站每小时一行 |
+| `alerts` | 最后一天的警报 |
+| `visits` | 窗口内的访问记录 |
+| `settings` | 参数和窗口 |
+
+各列的含义见[《结果说明》](output-zh.html)。
+
+## 4. 警报
+
+```{r}
+mon$alerts
+```
+
+示例数据最后一天一切正常。为了演示，去掉测定站 102 最后一天的全部记录和一头猪最后两天的记录：
+
+```{r}
+v <- prep_visits(tidypptsda::nedap, verbose = 0)
+end <- max(v$date)
+pig <- v[location == "101" & identified, responder[3]]
+spoiled <- v[!(location == "102" & date == end) & !(responder == pig & date >= end - 1)]
+mon2 <- run_monitor(spoiled, days = 7)
+mon2$alerts
+```
+
+| 警报 | 级别 | 条件（默认参数） |
+|---|---|---|
+| `station_down` | danger | 测定站一整天没有任何访问 |
+| `unidentified` | warning | 未识别访问超过 `max_unidentified_pct` = 5%（耳标或天线问题） |
+| `feed_drop` | warning | 测定站采食量比窗口内前几天的平均低 `max_feed_drop_pct` = 30% 以上 |
+| `pig_no_visit` | danger | 窗口内出现过的猪当天没有访问 |
+| `pig_low_feed` | warning | 猪当天采食量低于 `low_feed_kg` = 0.5 kg |
+
+停机测定站上的猪不再逐头报警，由 `station_down` 一条警报说明（括号里是受影响的猪数）。
+
+## 5. 宽表
+
+日表是长格式（每个单位每天一行），便于筛选和计算。`wide_table()` 把其中一列变成"测定站 × 日期"的宽表，和 Excel 里看到的一样；计数、kg、时间类的列加 `total`，其余加 `mean`：
+
+```{r}
+wide_table(mon$stations, "feed_kg")
+wide_table(mon$pigs, "feed_kg")
+```
+
+## 6. 作图
+
+每台测定站一张图，共四种：
+
+```{r, fig.height = 7}
+p <- plot_monitor(mon2, "trend", locations = "102")
+p$plot[[1]]
+```
+
+```{r, fig.height = 6}
+plot_monitor(mon2, "intake", locations = "101")$plot[[1]]
+```
+
+`"weight"` 是每天体重的箱线图，`"hours"` 是最后一天每小时的访问、占用时间和采食量。`save_monitor_plots()` 按合适的尺寸保存成 PNG 或 PDF。
+
+## 7. 报告与表格
+
+```{r, eval = FALSE}
+out <- file.path("D:/nedap/monitor", format(mon$settings$end_date))
+write_monitor_report(mon, out, open = TRUE)
+write_monitor_tables(mon, out)
+```
+
+HTML 报告第一页是总览：最后一天的测定站数、猪数、访问次数、采食量、警报，以及所有测定站和栋的表格；后面每台测定站一页：警报、趋势图、采食热图、猪只表、体重和分小时图。方向键翻页，搜索框输入耳标号跳到该猪所在的测定站。文件夹可以整体拷贝或压缩，离线打开。
+
+Excel 工作簿的各工作表见[《结果说明》](output-zh.html#excel)。每天定时运行见[《定时运行》](schedule-zh.html)。

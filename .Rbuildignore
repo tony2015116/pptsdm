@@ -1,10 +1,11 @@
 ^dev$
 ^LICENSE\.md$
-^pptsdd\.Rproj$
+^tidypptsdm\.Rproj$
 ^\.Rproj\.user$
 ^_pkgdown\.yml$
 ^docs$
 ^pkgdown$
 ^\.github$
+^README\.Rmd$
 ^vignettes/articles$
 ^pptsdm\.Rproj$

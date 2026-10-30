@@ -1,0 +1,2279 @@
+---
+title: "flat_tidypptsdm.Rmd for working package"
+output: html_document
+editor_options:
+  chunk_output_type: console
+---
+
+<!--
+Run this 'development' chunk
+
+Store every call to library() that you need to run chunks line by line, as in a classical Rmd for analysis
+-->
+
+```{r development, include=FALSE}
+library(testthat)
+library(data.table)
+library(tidypptsda)
+```
+
+<!--
+# Description of your package
+
+Fill and run the content of this chunk, before anything else.
+-->
+
+```{r description, eval=FALSE}
+fusen::fill_description(
+  pkg = here::here(),
+  fields = list(
+    Title = "Daily Monitoring of Pig Performance Testing Stations",
+    Description = paste(
+      "Daily monitoring of automatic pig feeding stations (NEDAP and FIRE)",
+      "during a performance test: per station, house, pig and hour of the",
+      "day, with alerts for stations without visits, unidentified visits,",
+      "drops in feed intake and pigs that stop eating. Results are written",
+      "as an HTML report to browse station by station and as an Excel",
+      "workbook, and the monitor can run every day as a scheduled task.",
+      "Data are read and prepared with 'tidypptsda'."
+    ),
+    `Authors@R` = c(
+      person("Meng", "Guo", email = "tony2015116@163.com",
+             role = c("aut", "cre", "cph"))
+    ),
+    Depends = "R (>= 4.1.0)",
+    Language = "en-US",
+    URL = "https://tony2015116.github.io/tidypptsdm/, https://github.com/tony2015116/tidypptsdm",
+    BugReports = "https://github.com/tony2015116/tidypptsdm/issues"
+  ),
+  overwrite = TRUE
+)
+desc::desc_set_version("1.0.0")
+desc::desc_set_remotes("tony2015116/tidypptsda")
+usethis::use_mit_license("Meng Guo")
+desc::desc_set("Roxygen", "list(markdown = TRUE)")
+```
+
+# tidypptsdm
+
+tidypptsdm watches the feeding stations of a pig performance test from day
+to day. It answers the questions of the daily round: is every station
+recording, are the transponders read, does every pig still eat, and how
+did feed intake and body weight develop over the last days?
+
+The data are read and prepared with
+[tidypptsda](https://tony2015116.github.io/tidypptsda/):
+`read_station()` reads NEDAP or FIRE exports and `prep_visits()` turns
+them into one standard visit table (feed intake in g, body weight in kg,
+duration in seconds, unidentified visits kept with `identified = FALSE`,
+pigs moved to another station resolved). Both functions are re-exported,
+so `library(tidypptsdm)` is enough.
+
+```{r}
+library(tidypptsdm)
+
+mon <- run_monitor(tidypptsda::nedap, days = 7, verbose = 0)
+mon
+```
+
+# Internal helpers
+
+Small internal tools shared by every function of the package:
+
+- **verbosity**: exported functions have `verbose = 0/1/2` (silent /
+  summary / details), as in tidypptsda;
+- **input**: `as_visits()` accepts a folder or files, a raw export, the
+  result of `read_station()` or of `prep_visits()`, and always returns a
+  copy, so user objects are never modified;
+- **window**: `monitor_window()` turns `days` and `end_date` into the
+  dates of the monitoring window.
+
+```{r function-utils}
+#' @filename utils
+#' @import data.table
+#' @importFrom cli cli_abort
+#' @keywords internal
+"_PACKAGE"
+
+utils::globalVariables(c(
+  ".", ".N", ".SD", "date", "duration", "entry_time", "feed_intake",
+  "feed_identified_kg", "feed_kg", "feed_per_pig_kg", "first_date", "hour",
+  "house", "i.pct_weight_outlier", "i.weight_kg", "identified", "lab",
+  "lab_col", "last_weight_kg", "level", "location", "low_feed_days",
+  "mean_feed", "metric", "n_pigs", "n_stations", "n_unidentified",
+  "n_visits", "occupation_h", "occupation_min", "outlier",
+  "pct_unidentified", "pct_weight_outlier", "pig", "pig_w", "responder",
+  "start", "status", "value", "weight", "weight_kg", "days_since_visit",
+  "last_feed_kg", "N", "type", "saved", "file", "plot",
+  "i.n_stations", "total"
+))
+
+`%||%` <- function(x, y) if (is.null(x)) y else x
+
+# ---- verbosity --------------------------------------------------------------
+
+pptm_verbose <- function() {
+  getOption("tidypptsdm.verbose", 1L)
+}
+
+check_verbose <- function(verbose) {
+  if (!is.numeric(verbose) || length(verbose) != 1L || is.na(verbose) ||
+      !verbose %in% 0:2) {
+    cli::cli_abort("{.arg verbose} must be 0 (silent), 1 (summary) or 2 (details).")
+  }
+  as.integer(verbose)
+}
+
+# Set the verbosity until the calling function exits.
+local_verbose <- function(verbose, envir = parent.frame()) {
+  verbose <- check_verbose(verbose)
+  old <- options(tidypptsdm.verbose = verbose, datatable.showProgress = FALSE)
+  do.call(on.exit, list(bquote(options(.(old))), add = TRUE), envir = envir)
+  invisible(verbose)
+}
+
+# Print a message if the current verbosity is at least `level`.
+pptm_msg <- function(msg, type = c("info", "success", "warning", "danger", "h1"),
+                     level = 1L, .envir = parent.frame()) {
+  if (pptm_verbose() < level) return(invisible(NULL))
+  type <- match.arg(type)
+  switch(type,
+    info    = cli::cli_alert_info(msg, .envir = .envir),
+    success = cli::cli_alert_success(msg, .envir = .envir),
+    warning = cli::cli_alert_warning(msg, .envir = .envir),
+    danger  = cli::cli_alert_danger(msg, .envir = .envir),
+    h1      = cli::cli_h1(msg, .envir = .envir)
+  )
+  invisible(NULL)
+}
+
+# ---- argument checks --------------------------------------------------------
+
+check_whole <- function(x, arg, min = 1) {
+  if (!is.numeric(x) || length(x) != 1L || is.na(x) || x < min || x != round(x)) {
+    cli::cli_abort("{.arg {arg}} must be a whole number of at least {min}, not {.val {format(x)}}.")
+  }
+  as.integer(x)
+}
+
+check_number <- function(x, arg, min = 0) {
+  if (!is.numeric(x) || length(x) != 1L || is.na(x) || x < min) {
+    cli::cli_abort("{.arg {arg}} must be a number of at least {min}, not {.val {format(x)}}.")
+  }
+  as.numeric(x)
+}
+
+check_monitor <- function(x) {
+  if (!inherits(x, "pptm_monitor")) {
+    cli::cli_abort("{.arg x} must be the result of {.fn run_monitor}.")
+  }
+  invisible(x)
+}
+
+check_path <- function(path) {
+  if (!is.character(path) || length(path) != 1L || is.na(path) || !nzchar(path)) {
+    cli::cli_abort("{.arg path} must be a folder name.")
+  }
+  path
+}
+
+# ---- input ------------------------------------------------------------------
+
+visit_cols <- c("responder", "identified", "location", "date", "entry_time",
+                "duration", "feed_intake", "weight")
+
+# TRUE for the result of prep_visits().
+is_visits <- function(data) {
+  is.data.frame(data) && all(visit_cols %in% names(data))
+}
+
+# Standard visit table from any input; always a copy.
+as_visits <- function(data, station = NULL, verbose = 1) {
+  if (is.character(data)) {
+    data <- tidypptsda::read_station(data, station = station, verbose = verbose)
+  }
+  if (!is.data.frame(data)) {
+    cli::cli_abort(c(
+      "{.arg data} must be station data.",
+      "i" = "Give a folder or files of station exports, a raw export already in R (e.g. {.code tidypptsda::nedap}), or the result of {.fn read_station} or {.fn prep_visits}."
+    ))
+  }
+  if (is_visits(data)) {
+    v <- data.table::copy(data.table::as.data.table(data))
+    if (is.null(attr(v, "station"))) data.table::setattr(v, "station", attr(data, "station"))
+  } else {
+    v <- tidypptsda::prep_visits(data, station = station, verbose = verbose)
+  }
+  if (!inherits(v$date, "Date")) v[, date := as.Date(date)]
+  v[, location := as.character(location)]
+  v[, responder := as.character(responder)]
+  v
+}
+
+# ---- monitoring window --------------------------------------------------------
+
+# Last day of the window: the last day in the data, but the day before when
+# that is today (an export taken during the day has an incomplete last day).
+resolve_end_date <- function(end_date, visits) {
+  if (is.null(end_date)) {
+    if (nrow(visits) == 0L || all(is.na(visits$date))) {
+      cli::cli_abort("{.arg data} has no visits with a date.")
+    }
+    last <- max(visits$date, na.rm = TRUE)
+    today <- Sys.Date()
+    if (last >= today) last <- today - 1L
+    return(last)
+  }
+  d <- tryCatch(as.Date(end_date), error = function(e) as.Date(NA))
+  if (length(d) != 1L || is.na(d)) {
+    cli::cli_abort("{.arg end_date} must be a date such as {.val 2024-05-25}, not {.val {format(end_date)}}.")
+  }
+  d
+}
+
+monitor_window <- function(visits, days, end_date) {
+  days <- check_whole(days, "days")
+  end <- resolve_end_date(end_date, visits)
+  start <- end - (days - 1L)
+  list(start = start, end = end, days = days,
+       dates = seq(start, end, by = "day"))
+}
+
+window_visits <- function(visits, win) {
+  visits[!is.na(location) & !is.na(date) & date >= win$start & date <= win$end]
+}
+
+# Stations monitored: those with a visit in the window or in the 14 days
+# before it. A station that stopped recording shows up (and alerts) for two
+# weeks; one taken out of the test earlier is no longer listed.
+active_days <- 14L
+
+active_locations <- function(visits, start, end) {
+  natural_order(visits[!is.na(location) & !is.na(date) &
+                         date >= start - active_days & date <= end, location])
+}
+
+# ---- small tools ----------------------------------------------------------------
+
+# Stations and pigs in natural order: "2" before "10".
+natural_order <- function(x) {
+  x <- unique(as.character(x[!is.na(x)]))
+  num <- suppressWarnings(as.numeric(gsub("[^0-9.]", "", x)))
+  x[order(is.na(num), num, x)]
+}
+
+order_natural <- function(dt, cols) {
+  keys <- lapply(cols, function(col) match(dt[[col]], natural_order(dt[[col]])))
+  dt[do.call(order, keys)]
+}
+
+# Tukey fences within a group; fewer than 4 weights are never outliers.
+iqr_outlier <- function(x, k) {
+  if (length(x) < 4L) return(rep(FALSE, length(x)))
+  q <- stats::quantile(x, c(0.25, 0.75), names = FALSE)
+  r <- q[2L] - q[1L]
+  x < q[1L] - k * r | x > q[2L] + k * r
+}
+
+# Round the result columns by their unit.
+round_cols <- function(dt) {
+  for (col in names(dt)) {
+    if (!is.double(dt[[col]])) next
+    d <- if (col == "weight_kg" || col == "last_weight_kg") 2L
+         else if (endsWith(col, "_kg")) 3L
+         else if (startsWith(col, "pct_")) 1L
+         else if (endsWith(col, "_h")) 2L
+         else if (endsWith(col, "_min")) 1L
+         else NA_integer_
+    if (!is.na(d)) data.table::set(dt, j = col, value = round(dt[[col]], d))
+  }
+  dt
+}
+
+nan_to_na <- function(x) {
+  x[is.nan(x)] <- NA_real_
+  x
+}
+
+# Okabe-Ito palette: colour-blind safe, no extra dependency.
+pptm_palette <- function(n) {
+  pal <- c("#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00",
+           "#56B4E9", "#F0E442", "#000000", "#999999")
+  if (n > length(pal)) pal <- grDevices::colorRampPalette(pal)(n)
+  pal[seq_len(n)]
+}
+```
+
+```{r tests-utils}
+test_that("natural order and outliers", {
+  expect_equal(natural_order(c("10", "2", "1", NA)), c("1", "2", "10"))
+  expect_equal(iqr_outlier(c(1, 2, 3), 1.5), rep(FALSE, 3))
+  expect_equal(iqr_outlier(c(50, 51, 52, 51, 50, 90), 1.5), c(rep(FALSE, 5), TRUE))
+})
+
+test_that("window ends on the last full day", {
+  v <- data.table::data.table(date = as.Date(c("2024-05-01", "2024-05-10")))
+  w <- monitor_window(v, 3, NULL)
+  expect_equal(w$end, as.Date("2024-05-10"))
+  expect_equal(w$dates, as.Date("2024-05-08") + 0:2)
+  today <- data.table::data.table(date = Sys.Date())
+  expect_equal(monitor_window(today, 1, NULL)$end, Sys.Date() - 1L)
+  expect_equal(monitor_window(v, 1, "2024-05-05")$end, as.Date("2024-05-05"))
+  expect_error(monitor_window(v, 0, NULL), "days")
+  expect_error(monitor_window(v, 2, "not a date"), "end_date")
+})
+
+test_that("input is never modified", {
+  raw <- data.table::as.data.table(tidypptsda::nedap)
+  before <- data.table::copy(raw)
+  v <- as_visits(raw, verbose = 0)
+  expect_identical(raw, before)
+  v2 <- as_visits(v, verbose = 0)
+  v2[, feed_intake := 0]
+  expect_false(all(v$feed_intake == 0))
+  expect_error(as_visits(1:3), "station data")
+})
+```
+
+# Re-exported from tidypptsda
+
+```{r function-reexports}
+#' Read and Prepare Station Data (from tidypptsda)
+#'
+#' These functions come from
+#' [tidypptsda](https://tony2015116.github.io/tidypptsda/) and are
+#' re-exported so that `library(tidypptsdm)` is enough:
+#' - [read_station()][tidypptsda::read_station]: read NEDAP or FIRE exports
+#'   (CSV, TXT, Excel; many files or a folder);
+#' - [prep_visits()][tidypptsda::prep_visits]: turn them into the standard
+#'   visit table used by every function of tidypptsdm.
+#'
+#' Every monitor function also accepts the folder, the raw export or the
+#' result of `read_station()` directly and calls `prep_visits()` itself.
+#'
+#' @filename reexports
+#' @name reexports
+#' @aliases read_station prep_visits
+#' @importFrom tidypptsda read_station prep_visits
+#' @export read_station prep_visits
+#' @keywords internal
+NULL
+```
+
+# One monitoring run
+
+`run_monitor()` is the function for the daily round. It prepares the
+visits once, computes every table over the last `days` days and lists
+the alerts of the last day. Its result goes to `write_monitor_report()`,
+`write_monitor_tables()` and `plot_monitor()`.
+
+The window ends on `end_date`. By default this is the last day in the
+data; when that is today, it is the day before, because an export taken
+during the day has an incomplete last day.
+
+```{r function-run_monitor}
+#' Monitor the Stations over the Last Days
+#'
+#' @description
+#' Prepare the visits once, compute the daily tables of the monitoring
+#' window (stations, houses, pigs, hours of the last day) and list the
+#' alerts of the last day.
+#'
+#' @param data Station data: a folder or files of NEDAP or FIRE exports
+#'   (read with [read_station()]), a raw export already in R such as
+#'   [tidypptsda::nedap], or the result of [read_station()] or
+#'   [prep_visits()].
+#' @param days Number of days in the window, ending on `end_date`.
+#'   Default 7.
+#' @param end_date Last day of the window (a `Date` or `"YYYY-MM-DD"`).
+#'   Default `NULL`: the last day in the data, or yesterday when the last
+#'   day is today (an export taken during the day is incomplete).
+#' @param house_width Number of leading characters of the station ID that
+#'   name its house, e.g. `1` for station `"203"` in house `"2"`.
+#'   Default 1.
+#' @param low_feed_kg A pig that ate less than this on a day (kg) is
+#'   `"low_feed"`. Default 0.5.
+#' @param max_unidentified_pct Alert when more than this percentage of the
+#'   visits of a station are unidentified on the last day. Default 5.
+#' @param max_feed_drop_pct Alert when the feed intake of a station on the
+#'   last day is more than this percentage below its mean of the earlier
+#'   days of the window. Default 30.
+#' @param iqr_k Body weights of a pig on a day outside the Tukey fences
+#'   (quartiles -/+ `iqr_k` times the interquartile range) are outliers.
+#'   Default 1.5.
+#' @param station `"nedap"`, `"fire"` or `NULL` (detect), passed to
+#'   [read_station()] and [prep_visits()].
+#' @param verbose 0 (silent), 1 (summary, default) or 2 (details).
+#'
+#' @return An object of class `pptm_monitor`, a list with:
+#'   - `stations`: [monitor_stations()], one row per station and day;
+#'   - `houses`: [monitor_houses()], one row per house and day;
+#'   - `pigs`: [monitor_pigs()], one row per pig and day;
+#'   - `pig_summary`: one row per pig over the window (see below);
+#'   - `hours`: [monitor_hours()] of the last day;
+#'   - `alerts`: the alerts of the last day (see below);
+#'   - `visits`: the visits of the window;
+#'   - `settings`: the arguments, the window and the station type.
+#'
+#'   `pig_summary` has `location`, `responder`, `days` (days in the
+#'   window since the pig was first seen), `no_visit_days`,
+#'   `low_feed_days`, `mean_feed_kg` (mean daily feed intake, days without
+#'   visit count as 0), `last_feed_kg` and `last_visits` (last day),
+#'   `last_weight_kg` (last daily median weight), `days_since_visit` and
+#'   `status` on the last day.
+#'
+#' @section Alerts:
+#' One row per problem on the last day, with `level` (`"danger"` or
+#' `"warning"`), `type`, `location`, `responder` (pig alerts), `value` and
+#' `message`:
+#'
+#' | type | level | when |
+#' |---|---|---|
+#' | `station_down` | danger | no visit at all on the station |
+#' | `unidentified` | warning | more than `max_unidentified_pct` % of the visits unidentified (transponder or antenna) |
+#' | `feed_drop` | warning | feed intake more than `max_feed_drop_pct` % below the station mean of the earlier days |
+#' | `pig_no_visit` | danger | a pig seen in the window did not visit its station |
+#' | `pig_low_feed` | warning | a pig ate less than `low_feed_kg` |
+#'
+#' Pigs of a station without any visit get no pig alert: the
+#' `station_down` alert covers them.
+#'
+#' @seealso [write_monitor_report()], [write_monitor_tables()],
+#'   [plot_monitor()], [schedule_monitor()].
+#' @export
+#' @examples
+#' mon <- run_monitor(tidypptsda::nedap, days = 7)
+#' mon$alerts
+#' head(mon$stations)
+#'
+#' # Another window and stricter limits
+#' mon2 <- run_monitor(tidypptsda::fire, days = 14, end_date = "2024-02-10",
+#'                     low_feed_kg = 1, verbose = 0)
+#' mon2$pig_summary
+run_monitor <- function(data, days = 7, end_date = NULL, house_width = 1,
+                        low_feed_kg = 0.5, max_unidentified_pct = 5,
+                        max_feed_drop_pct = 30, iqr_k = 1.5, station = NULL,
+                        verbose = 1) {
+  local_verbose(verbose)
+  house_width <- check_whole(house_width, "house_width")
+  low_feed_kg <- check_number(low_feed_kg, "low_feed_kg")
+  max_unidentified_pct <- check_number(max_unidentified_pct, "max_unidentified_pct")
+  max_feed_drop_pct <- check_number(max_feed_drop_pct, "max_feed_drop_pct")
+  iqr_k <- check_number(iqr_k, "iqr_k")
+
+  v <- as_visits(data, station, verbose)
+  win <- monitor_window(v, days, end_date)
+  st_type <- attr(v, "station") %||% ""
+  pptm_msg("Monitoring {toupper(st_type)} stations: {format(win$start)} to {format(win$end)} ({win$days} day{?s})", "h1")
+
+  w <- window_visits(v, win)
+  if (nrow(w) == 0L) {
+    pptm_msg("No visits between {format(win$start)} and {format(win$end)}.", "warning")
+  }
+  stations <- station_table(v, win, iqr_k)
+  houses <- house_table(v, win, house_width)
+  pigs <- pig_table(v, win, low_feed_kg)
+  pig_sum <- pig_summary(pigs, win$end)
+  hours <- hour_table(v, win$end)
+  alerts <- find_alerts(stations, pig_sum, win$end, low_feed_kg,
+                        max_unidentified_pct, max_feed_drop_pct)
+
+  out <- structure(list(
+    stations = stations, houses = houses, pigs = pigs, pig_summary = pig_sum,
+    hours = hours, alerts = alerts, visits = w,
+    settings = list(station = st_type, days = win$days, start_date = win$start,
+                    end_date = win$end, house_width = house_width,
+                    low_feed_kg = low_feed_kg,
+                    max_unidentified_pct = max_unidentified_pct,
+                    max_feed_drop_pct = max_feed_drop_pct, iqr_k = iqr_k,
+                    created = Sys.time())
+  ), class = "pptm_monitor")
+
+  if (pptm_verbose() >= 1L) print_summary(out)
+  invisible(out)
+}
+
+#' @export
+print.pptm_monitor <- function(x, ...) {
+  s <- x$settings
+  cli::cli_h1("{toupper(s$station)} monitor: {format(s$start_date)} to {format(s$end_date)}")
+  print_summary(x)
+  cli::cli_text(cli::col_grey(
+    "Tables: $stations, $houses, $pigs, $pig_summary, $hours, $alerts. Write them with write_monitor_report() or write_monitor_tables()."
+  ))
+  invisible(x)
+}
+
+print_summary <- function(x) {
+  s <- x$settings
+  last <- x$stations[date == s$end_date]
+  n_st <- nrow(last)
+  n_pigs <- nrow(x$pig_summary)
+  vis <- sum(last$n_visits)
+  feed <- sum(last$feed_kg)
+  vis_txt <- paste0(format(vis, big.mark = ","), " visit", if (vis == 1) "" else "s")
+  feed_txt <- format(round(feed, 1), nsmall = 1)
+  cli::cli_alert_info(
+    "{n_st} station{?s}, {n_pigs} pig{?s}; on {format(s$end_date)}: {vis_txt}, {feed_txt} kg feed"
+  )
+  a <- x$alerts
+  if (nrow(a) == 0L) {
+    cli::cli_alert_success("No alerts")
+  } else {
+    n_d <- sum(a$level == "danger")
+    n_w <- sum(a$level == "warning")
+    cli::cli_alert_warning("{nrow(a)} alert{?s}: {n_d} danger, {n_w} warning")
+    show <- utils::head(a, 10L)
+    lab <- ifelse(is.na(show$responder), paste("Station", show$location),
+                  paste0("Pig ", show$responder, " (station ", show$location, ")"))
+    bullets <- stats::setNames(paste0(lab, ": ", show$message),
+                               ifelse(show$level == "danger", "x", "!"))
+    cli::cli_bullets(gsub("([{}])", "\\1\\1", bullets))
+    if (nrow(a) > 10L) cli::cli_text(cli::col_grey("... and {nrow(a) - 10L} more in $alerts"))
+  }
+  invisible(NULL)
+}
+```
+
+```{r examples-run_monitor}
+mon <- run_monitor(tidypptsda::nedap, days = 7)
+mon$alerts
+head(mon$stations)
+```
+
+```{r tests-run_monitor}
+test_that("run_monitor returns every table for both station types", {
+  for (raw in list(tidypptsda::nedap, tidypptsda::fire)) {
+    mon <- run_monitor(raw, days = 5, verbose = 0)
+    expect_s3_class(mon, "pptm_monitor")
+    expect_named(mon, c("stations", "houses", "pigs", "pig_summary", "hours",
+                        "alerts", "visits", "settings"))
+    expect_equal(mon$settings$days, 5L)
+    expect_equal(data.table::uniqueN(mon$stations$date), 5L)
+    expect_true(all(mon$visits$date >= mon$settings$start_date))
+    expect_equal(nrow(mon$hours), 24L * data.table::uniqueN(mon$stations$location))
+  }
+  expect_error(run_monitor(tidypptsda::nedap, house_width = 0, verbose = 0), "house_width")
+  expect_error(run_monitor(tidypptsda::nedap, low_feed_kg = -1, verbose = 0), "low_feed_kg")
+  expect_message(print(run_monitor(tidypptsda::nedap, verbose = 0)), "monitor")
+})
+
+test_that("a station without visits and a pig that stops eating are alerts", {
+  v <- prep_visits(tidypptsda::nedap, verbose = 0)
+  end <- max(v$date)
+  pig <- v[location == "101" & identified, responder[1]]
+  spoiled <- v[!(location == "102" & date == end) & !(responder %in% pig & date == end)]
+  mon <- run_monitor(spoiled, days = 7, end_date = end, verbose = 0)
+  a <- mon$alerts
+  expect_true(any(a$type == "station_down" & a$location == "102"))
+  expect_true(any(a$type == "pig_no_visit" & a$responder == pig))
+  # no pig alerts for a station that is down
+  expect_false(any(a$location == "102" & !is.na(a$responder)))
+  expect_equal(a$level[1], "danger")
+  st <- mon$stations[location == "102" & date == end]
+  expect_equal(st$n_visits, 0L)
+  expect_true(is.na(st$weight_kg))
+})
+```
+
+# Daily tables
+
+Each table has one row per unit and day of the window, also for days
+without any visit (counts are then 0). That is what makes a station that
+stopped recording, or a pig that stopped eating, visible.
+
+## Stations
+
+```{r function-monitor_stations}
+#' Daily Table per Station
+#'
+#' @description
+#' One row per station and day of the window: pigs, visits, unidentified
+#' visits, occupation time, feed intake and body weight.
+#'
+#' @inheritParams run_monitor
+#'
+#' @return A `data.table` with one row per station (`location`) and
+#'   `date`, also for days without visits:
+#'   - `n_pigs`: pigs with at least one identified visit;
+#'   - `n_visits`: all visits; `n_unidentified`: visits without a
+#'     transponder read; `pct_unidentified`: their percentage;
+#'   - `occupation_h`: total time the station was occupied, hours;
+#'   - `feed_kg`: feed intake of all visits, kg; `feed_per_pig_kg`: feed
+#'     intake of the identified visits divided by `n_pigs`;
+#'   - `weight_kg`: mean over the pigs of their daily median body weight,
+#'     outliers excluded;
+#'   - `pct_weight_outlier`: percentage of the recorded body weights that
+#'     are outliers within the pig and day (see `iqr_k`).
+#'
+#'   Counts are 0 and the other columns `NA` on days without visits.
+#' @seealso [run_monitor()] for all tables at once.
+#' @export
+#' @examples
+#' st <- monitor_stations(tidypptsda::nedap, days = 7, verbose = 0)
+#' st
+#' # Stations in rows, days in columns
+#' wide_table(st, "feed_kg")
+monitor_stations <- function(data, days = 7, end_date = NULL, iqr_k = 1.5,
+                             station = NULL, verbose = 1) {
+  local_verbose(verbose)
+  iqr_k <- check_number(iqr_k, "iqr_k")
+  v <- as_visits(data, station, verbose)
+  station_table(v, monitor_window(v, days, end_date), iqr_k)
+}
+
+station_table <- function(v, win, iqr_k) {
+  locs <- active_locations(v, win$start, win$end)
+  w <- window_visits(v, win)
+  agg <- w[, .(n_pigs = data.table::uniqueN(responder[identified]),
+               n_visits = .N,
+               n_unidentified = sum(!identified),
+               occupation_h = sum(duration, na.rm = TRUE) / 3600,
+               feed_kg = sum(feed_intake, na.rm = TRUE) / 1000,
+               feed_identified_kg = sum(feed_intake[identified], na.rm = TRUE) / 1000),
+           by = .(location, date)]
+  grid <- data.table::CJ(location = locs, date = win$dates)
+  res <- agg[grid, on = c("location", "date")]
+  res[is.na(n_visits), `:=`(n_pigs = 0L, n_visits = 0L, n_unidentified = 0L,
+                            occupation_h = 0, feed_kg = 0, feed_identified_kg = 0)]
+  res[, pct_unidentified := data.table::fifelse(n_visits > 0L, 100 * n_unidentified / n_visits, NA_real_)]
+  res[, feed_per_pig_kg := data.table::fifelse(n_pigs > 0L, feed_identified_kg / n_pigs, NA_real_)]
+
+  wv <- w[identified == TRUE & !is.na(weight)]
+  wv[, outlier := iqr_outlier(weight, iqr_k), by = .(location, date, responder)]
+  out_pct <- wv[, .(pct_weight_outlier = 100 * mean(outlier)), by = .(location, date)]
+  wt <- wv[outlier == FALSE, .(pig_w = stats::median(weight)), by = .(location, date, responder)
+           ][, .(weight_kg = mean(pig_w)), by = .(location, date)]
+  res[, `:=`(weight_kg = NA_real_, pct_weight_outlier = NA_real_)]
+  res[wt, weight_kg := i.weight_kg, on = c("location", "date")]
+  res[out_pct, pct_weight_outlier := i.pct_weight_outlier, on = c("location", "date")]
+  res[, feed_identified_kg := NULL]
+  data.table::setcolorder(res, c("location", "date", "n_pigs", "n_visits",
+                                 "n_unidentified", "pct_unidentified",
+                                 "occupation_h", "feed_kg", "feed_per_pig_kg",
+                                 "weight_kg", "pct_weight_outlier"))
+  res <- order_natural(res, "location")
+  res <- round_cols(res)
+  data.table::setattr(res, "pptm_table", "stations")
+  res[]
+}
+```
+
+```{r examples-monitor_stations}
+st <- monitor_stations(tidypptsda::nedap, days = 7, verbose = 0)
+st
+wide_table(st, "feed_kg")
+```
+
+```{r tests-monitor_stations}
+test_that("station table counts visits, pigs and feed", {
+  v <- prep_visits(tidypptsda::nedap, verbose = 0)
+  end <- max(v$date)
+  st <- monitor_stations(v, days = 3, end_date = end, verbose = 0)
+  expect_equal(nrow(st), 2L * 3L)
+  one <- v[location == "101" & date == end]
+  r <- st[location == "101" & date == end]
+  expect_equal(r$n_visits, nrow(one))
+  expect_equal(r$n_unidentified, sum(!one$identified))
+  expect_equal(r$n_pigs, data.table::uniqueN(one[identified == TRUE]$responder))
+  expect_equal(r$feed_kg, round(sum(one$feed_intake) / 1000, 3))
+  expect_equal(r$occupation_h, round(sum(one$duration) / 3600, 2))
+  expect_true(r$weight_kg > 20 && r$weight_kg < 200)
+  # a day after the data: zero visits, no weight
+  st2 <- monitor_stations(v, days = 2, end_date = end + 1, verbose = 0)
+  expect_equal(st2[date == end + 1, n_visits], c(0L, 0L))
+  expect_true(all(is.na(st2[date == end + 1, pct_unidentified])))
+})
+```
+
+## Houses
+
+A house is a group of stations, named by the first `house_width`
+characters of the station ID.
+
+```{r function-monitor_houses}
+#' Daily Table per House
+#'
+#' @description
+#' One row per house and day: the stations of a house are grouped by the
+#' first `house_width` characters of their ID.
+#'
+#' @inheritParams run_monitor
+#'
+#' @return A `data.table` with one row per `house` and `date`:
+#'   `n_stations` (stations of the house in the data), `n_pigs`,
+#'   `n_visits`, `feed_kg`, `feed_per_pig_kg` (as in
+#'   [monitor_stations()]) and `weight_kg` (mean over the pigs of their
+#'   daily median body weight).
+#' @seealso [run_monitor()].
+#' @export
+#' @examples
+#' monitor_houses(tidypptsda::nedap, days = 5, verbose = 0)
+#' # Every station its own house
+#' monitor_houses(tidypptsda::nedap, days = 5, house_width = 3, verbose = 0)
+monitor_houses <- function(data, days = 7, end_date = NULL, house_width = 1,
+                           station = NULL, verbose = 1) {
+  local_verbose(verbose)
+  house_width <- check_whole(house_width, "house_width")
+  v <- as_visits(data, station, verbose)
+  house_table(v, monitor_window(v, days, end_date), house_width)
+}
+
+house_table <- function(v, win, house_width) {
+  locs <- active_locations(v, win$start, win$end)
+  st <- data.table::data.table(location = locs)[, house := substr(location, 1L, house_width)]
+  n_st <- st[, .(n_stations = .N), by = house]
+  w <- window_visits(v, win)[location %in% locs]
+  w[, house := substr(location, 1L, house_width)]
+  agg <- w[, .(n_pigs = data.table::uniqueN(responder[identified]),
+               n_visits = .N,
+               feed_kg = sum(feed_intake, na.rm = TRUE) / 1000,
+               feed_identified_kg = sum(feed_intake[identified], na.rm = TRUE) / 1000),
+           by = .(house, date)]
+  wt <- w[identified == TRUE & !is.na(weight), .(pig_w = stats::median(weight)),
+          by = .(house, date, responder)][, .(weight_kg = mean(pig_w)), by = .(house, date)]
+  grid <- data.table::CJ(house = natural_order(st$house), date = win$dates)
+  res <- agg[grid, on = c("house", "date")]
+  res[is.na(n_visits), `:=`(n_pigs = 0L, n_visits = 0L, feed_kg = 0, feed_identified_kg = 0)]
+  res[, feed_per_pig_kg := data.table::fifelse(n_pigs > 0L, feed_identified_kg / n_pigs, NA_real_)]
+  res[, weight_kg := NA_real_]
+  res[wt, weight_kg := i.weight_kg, on = c("house", "date")]
+  res[n_st, n_stations := i.n_stations, on = "house"]
+  res[, feed_identified_kg := NULL]
+  data.table::setcolorder(res, c("house", "date", "n_stations", "n_pigs",
+                                 "n_visits", "feed_kg", "feed_per_pig_kg", "weight_kg"))
+  res <- order_natural(res, "house")
+  res <- round_cols(res)
+  data.table::setattr(res, "pptm_table", "houses")
+  res[]
+}
+```
+
+```{r examples-monitor_houses}
+monitor_houses(tidypptsda::nedap, days = 5, verbose = 0)
+```
+
+```{r tests-monitor_houses}
+test_that("houses group stations by the leading characters", {
+  v <- prep_visits(tidypptsda::nedap, verbose = 0)
+  h1 <- monitor_houses(v, days = 4, house_width = 1, verbose = 0)
+  expect_equal(unique(h1$house), "1")
+  expect_equal(unique(h1$n_stations), 2L)
+  h3 <- monitor_houses(v, days = 4, house_width = 3, verbose = 0)
+  st <- monitor_stations(v, days = 4, verbose = 0)
+  expect_equal(sort(unique(h3$house)), c("101", "102"))
+  expect_equal(sum(h1$feed_kg), sum(st$feed_kg), tolerance = 1e-3)
+  expect_equal(sum(h3$n_visits), sum(st$n_visits))
+})
+```
+
+## Pigs
+
+```{r function-monitor_pigs}
+#' Daily Table per Pig
+#'
+#' @description
+#' One row per pig and day, from the first day the pig was seen (or the
+#' start of the window) to the last day of the window. A day without any
+#' visit is kept with `status = "no_visit"`, so a pig that stopped eating
+#' is never missing from the table.
+#'
+#' @inheritParams run_monitor
+#'
+#' @return A `data.table` with one row per pig (`responder`) and `date`,
+#'   for the pigs with at least one identified visit in the window:
+#'   - `location`: the station where the pig had most visits in the
+#'     window;
+#'   - `n_visits`, `feed_kg`, `occupation_min` (minutes), `weight_kg`
+#'     (median body weight of the day);
+#'   - `status`: `"no_visit"`, `"low_feed"` (less than `low_feed_kg`) or
+#'     `"ok"`.
+#' @seealso [run_monitor()], whose `pig_summary` sums this table up per
+#'   pig.
+#' @export
+#' @examples
+#' pigs <- monitor_pigs(tidypptsda::fire, days = 7, verbose = 0)
+#' pigs[status != "ok"]
+#' wide_table(pigs, "feed_kg")
+monitor_pigs <- function(data, days = 7, end_date = NULL, low_feed_kg = 0.5,
+                         station = NULL, verbose = 1) {
+  local_verbose(verbose)
+  low_feed_kg <- check_number(low_feed_kg, "low_feed_kg")
+  v <- as_visits(data, station, verbose)
+  pig_table(v, monitor_window(v, days, end_date), low_feed_kg)
+}
+
+empty_pigs <- function() {
+  data.table::data.table(location = character(), responder = character(),
+                         date = as.Date(character()), n_visits = integer(),
+                         feed_kg = numeric(), occupation_min = numeric(),
+                         weight_kg = numeric(), status = character())
+}
+
+pig_table <- function(v, win, low_feed_kg) {
+  w <- window_visits(v, win)[identified == TRUE]
+  if (nrow(w) == 0L) {
+    res <- empty_pigs()
+    data.table::setattr(res, "pptm_table", "pigs")
+    return(res)
+  }
+  main <- w[, .N, by = .(responder, location)][order(-N)][, .SD[1L], by = responder
+           ][, .(responder, location)]
+  first <- v[identified == TRUE & !is.na(date), .(first_date = min(date)), by = responder]
+  pigs <- first[main, on = "responder"][, start := pmax(first_date, win$start)]
+  end <- win$end
+  grid <- pigs[, .(date = seq(start, end, by = "day")), by = .(responder, location)]
+  pd <- w[, .(n_visits = .N,
+              feed_kg = sum(feed_intake, na.rm = TRUE) / 1000,
+              occupation_min = sum(duration, na.rm = TRUE) / 60,
+              weight_kg = if (all(is.na(weight))) NA_real_ else stats::median(weight, na.rm = TRUE)),
+          by = .(responder, date)]
+  res <- pd[grid, on = c("responder", "date")]
+  res[is.na(n_visits), `:=`(n_visits = 0L, feed_kg = 0, occupation_min = 0)]
+  res[, status := data.table::fifelse(n_visits == 0L, "no_visit",
+                                      data.table::fifelse(feed_kg < low_feed_kg, "low_feed", "ok"))]
+  data.table::setcolorder(res, c("location", "responder", "date", "n_visits",
+                                 "feed_kg", "occupation_min", "weight_kg", "status"))
+  res <- res[order(match(location, natural_order(location)),
+                   match(responder, natural_order(responder)), date)]
+  res <- round_cols(res)
+  data.table::setattr(res, "pptm_table", "pigs")
+  res[]
+}
+
+pig_summary <- function(pigs, end) {
+  if (nrow(pigs) == 0L) {
+    return(data.table::data.table(
+      location = character(), responder = character(), days = integer(),
+      no_visit_days = integer(), low_feed_days = integer(),
+      mean_feed_kg = numeric(), last_feed_kg = numeric(), last_visits = integer(),
+      last_weight_kg = numeric(), days_since_visit = integer(), status = character()))
+  }
+  res <- pigs[, {
+    last <- date == end
+    seen <- date[n_visits > 0L]
+    wts <- weight_kg[!is.na(weight_kg)]
+    .(days = .N,
+      no_visit_days = sum(status == "no_visit"),
+      low_feed_days = sum(status == "low_feed"),
+      mean_feed_kg = mean(feed_kg),
+      last_feed_kg = feed_kg[last][1L],
+      last_visits = n_visits[last][1L],
+      last_weight_kg = if (length(wts) > 0L) wts[length(wts)] else NA_real_,
+      days_since_visit = if (length(seen) > 0L) as.integer(end - max(seen)) else NA_integer_,
+      status = status[last][1L])
+  }, by = .(location, responder)]
+  round_cols(res)[]
+}
+```
+
+```{r examples-monitor_pigs}
+pigs <- monitor_pigs(tidypptsda::fire, days = 7, verbose = 0)
+pigs[status != "ok"]
+```
+
+```{r tests-monitor_pigs}
+test_that("pig table keeps days without visit", {
+  v <- prep_visits(tidypptsda::nedap, verbose = 0)
+  end <- max(v$date)
+  pig <- v[identified == TRUE, responder[1]]
+  v2 <- v[!(responder %in% pig & date >= end - 1)]
+  pg <- monitor_pigs(v2, days = 5, end_date = end, low_feed_kg = 0.5, verbose = 0)
+  one <- pg[responder == pig]
+  expect_equal(nrow(one), 5L)
+  expect_equal(one[date >= end - 1, status], c("no_visit", "no_visit"))
+  expect_equal(one[date >= end - 1, feed_kg], c(0, 0))
+  # every pig has one row per day of the window
+  expect_true(all(pg[, .N, by = responder]$N == 5L))
+  expect_true(all(pg$status %in% c("ok", "low_feed", "no_visit")))
+  expect_true(all(pg[status == "low_feed", feed_kg] < 0.5))
+  ps <- pig_summary(pg, end)
+  expect_equal(ps[responder == pig, days_since_visit], 2L)
+  expect_equal(ps[responder == pig, no_visit_days], 2L)
+  # a pig with high limit is low feed every day it visited
+  pg_hi <- monitor_pigs(v, days = 2, low_feed_kg = 100, verbose = 0)
+  expect_true(all(pg_hi[n_visits > 0, status] == "low_feed"))
+})
+```
+
+## Hours of the day
+
+```{r function-monitor_hours}
+#' Hourly Table per Station for One Day
+#'
+#' @description
+#' Visits, pigs, occupation time and feed intake per station and hour of
+#' one day, for all 24 hours.
+#'
+#' @inheritParams run_monitor
+#' @param date The day. Default `NULL`: the last full day in the data
+#'   (see `end_date` in [run_monitor()]).
+#'
+#' @return A `data.table` with one row per station (`location`) and
+#'   `hour` (0 to 23, from the entrance time): `date`, `n_pigs`,
+#'   `n_visits`, `occupation_min` and `feed_kg`.
+#' @seealso [run_monitor()].
+#' @export
+#' @examples
+#' h <- monitor_hours(tidypptsda::nedap, verbose = 0)
+#' wide_table(h, "n_visits")
+monitor_hours <- function(data, date = NULL, station = NULL, verbose = 1) {
+  local_verbose(verbose)
+  v <- as_visits(data, station, verbose)
+  hour_table(v, resolve_end_date(date, v))
+}
+
+hour_table <- function(v, day) {
+  locs <- active_locations(v, day, day)
+  w <- v[!is.na(location) & !is.na(date) & date == day]
+  w[, hour := as.integer(format(entry_time, "%H", tz = "UTC"))]
+  agg <- w[, .(n_pigs = data.table::uniqueN(responder[identified]),
+               n_visits = .N,
+               occupation_min = sum(duration, na.rm = TRUE) / 60,
+               feed_kg = sum(feed_intake, na.rm = TRUE) / 1000),
+           by = .(location, hour)]
+  grid <- data.table::CJ(location = locs, hour = 0:23)
+  res <- agg[grid, on = c("location", "hour")]
+  res[is.na(n_visits), `:=`(n_pigs = 0L, n_visits = 0L, occupation_min = 0, feed_kg = 0)]
+  res[, date := day]
+  data.table::setcolorder(res, c("location", "date", "hour"))
+  res <- order_natural(res, "location")
+  res <- round_cols(res)
+  data.table::setattr(res, "pptm_table", "hours")
+  res[]
+}
+```
+
+```{r examples-monitor_hours}
+h <- monitor_hours(tidypptsda::nedap, verbose = 0)
+wide_table(h, "n_visits")
+```
+
+```{r tests-monitor_hours}
+test_that("hours cover the whole day", {
+  v <- prep_visits(tidypptsda::nedap, verbose = 0)
+  end <- max(v$date)
+  h <- monitor_hours(v, date = end, verbose = 0)
+  expect_equal(nrow(h), 48L)
+  expect_equal(sort(unique(h$hour)), 0:23)
+  expect_equal(sum(h$n_visits), nrow(v[date == end]))
+  expect_equal(unique(h$date), end)
+})
+```
+
+## Alerts
+
+```{r function-alerts}
+#' Alerts of the last day
+#' @filename alerts
+#' @noRd
+empty_alerts <- function() {
+  data.table::data.table(level = character(), type = character(),
+                         location = character(), responder = character(),
+                         value = numeric(), message = character())
+}
+
+find_alerts <- function(stations, pig_sum, end, low_feed_kg,
+                        max_unidentified_pct, max_feed_drop_pct) {
+  last <- stations[date == end]
+  down <- last[n_visits == 0L]
+  pigs_at <- pig_sum[, .N, by = location]
+  a_down <- if (nrow(down) > 0L) down[, .(level = "danger", type = "station_down", location,
+                     responder = NA_character_, value = 0,
+                     message = paste0("No visits on ", format(end),
+                                      pigs_note(pigs_at$N[match(location, pigs_at$location)])))]
+  un <- last[n_visits > 0L & pct_unidentified > max_unidentified_pct]
+  a_un <- if (nrow(un) > 0L) un[, .(level = "warning", type = "unidentified", location,
+                 responder = NA_character_, value = pct_unidentified,
+                 message = sprintf("%.1f%% of the visits unidentified (%d of %d)",
+                                   pct_unidentified, n_unidentified, n_visits))]
+  prev <- stations[date < end & n_visits > 0L, .(mean_feed = mean(feed_kg)), by = location]
+  fd <- last[prev, on = "location", nomatch = NULL
+             ][n_visits > 0L & mean_feed > 0 & feed_kg < (1 - max_feed_drop_pct / 100) * mean_feed]
+  a_fd <- if (nrow(fd) > 0L) fd[, .(level = "warning", type = "feed_drop", location,
+                 responder = NA_character_, value = feed_kg,
+                 message = sprintf("Feed intake %.1f kg, %.0f%% below the mean of the earlier days (%.1f kg)",
+                                   feed_kg, 100 * (1 - feed_kg / mean_feed), mean_feed))]
+  ps <- pig_sum[!location %in% down$location]
+  nv <- ps[status == "no_visit"]
+  lf <- ps[status == "low_feed"]
+  a_nv <- if (nrow(nv) > 0L) nv[, .(level = "danger", type = "pig_no_visit", location,
+             responder, value = as.numeric(days_since_visit),
+             message = paste0("No visit for ", days_since_visit, " day",
+                              ifelse(days_since_visit == 1L, "", "s"),
+                              ifelse(is.na(last_weight_kg), "",
+                                     sprintf(" (last weight %.1f kg)", last_weight_kg))))]
+  a_lf <- if (nrow(lf) > 0L) lf[, .(level = "warning", type = "pig_low_feed", location,
+             responder, value = last_feed_kg,
+             message = sprintf("Ate %.2f kg (below %s kg); %d low-feed day%s in the window",
+                               last_feed_kg, format(low_feed_kg), low_feed_days,
+                               ifelse(low_feed_days == 1L, "", "s")))]
+  parts <- list(a_down, a_un, a_fd, a_nv, a_lf)
+  parts <- parts[vapply(parts, function(p) !is.null(p) && nrow(p) > 0L, logical(1))]
+  out <- data.table::rbindlist(c(list(empty_alerts()), parts),
+                               use.names = TRUE)
+  if (nrow(out) == 0L) return(out)
+  out[order(match(level, c("danger", "warning")),
+            !is.na(responder),
+            match(location, natural_order(location)),
+            match(type, c("station_down", "unidentified", "feed_drop", "pig_no_visit", "pig_low_feed")),
+            match(responder, natural_order(responder)))]
+}
+
+pigs_note <- function(n) {
+  ifelse(is.na(n) | n == 0L, "", paste0(" (", n, " pig", ifelse(n == 1L, "", "s"), ")"))
+}
+```
+
+```{r tests-alerts}
+test_that("alert rules", {
+  st <- data.table::data.table(
+    location = rep(c("1", "2", "3"), each = 3),
+    date = rep(as.Date("2024-01-01") + 0:2, 3),
+    n_visits = c(100L, 100L, 0L, 100L, 100L, 100L, 100L, 100L, 100L),
+    n_unidentified = c(0L, 0L, 0L, 0L, 0L, 20L, 0L, 0L, 0L),
+    pct_unidentified = c(0, 0, NA, 0, 0, 20, 0, 0, 0),
+    feed_kg = c(30, 30, 0, 30, 30, 30, 30, 30, 10)
+  )
+  ps <- data.table::data.table(location = c("1", "3", "3"), responder = c("a", "b", "c"),
+                               status = c("no_visit", "low_feed", "ok"),
+                               days_since_visit = c(1L, 0L, 0L),
+                               last_weight_kg = c(80, 70, 75), last_feed_kg = c(0, 0.2, 2),
+                               low_feed_days = c(0L, 2L, 0L))
+  a <- find_alerts(st, ps, as.Date("2024-01-03"), 0.5, 5, 30)
+  expect_equal(a$type, c("station_down", "unidentified", "feed_drop", "pig_low_feed"))
+  expect_equal(a$level, c("danger", "warning", "warning", "warning"))
+  expect_match(a$message[1], "1 pig")
+  expect_equal(nrow(find_alerts(st[date < "2024-01-03"], ps[0], as.Date("2024-01-02"), 0.5, 5, 30)), 0L)
+})
+```
+
+# Wide tables
+
+The daily tables are long: one row per unit and day. `wide_table()`
+turns one column into a table with the units in rows and the days (or
+hours) in columns, as in the Excel workbook.
+
+```{r function-wide_table}
+#' One Measure as a Wide Table
+#'
+#' @description
+#' Turn one column of a daily table into a wide table: stations, houses
+#' or pigs in rows, days (or hours) in columns, plus the total or mean
+#' over the window.
+#'
+#' @param x A table from [monitor_stations()], [monitor_houses()],
+#'   [monitor_pigs()] or [monitor_hours()] (also as part of
+#'   [run_monitor()]).
+#' @param value Name of the column to show, e.g. `"feed_kg"`.
+#'
+#' @return A `data.table`: the ID columns (`location`, `house`, or
+#'   `location` and `responder`), one column per day (`"MM-DD"`, or
+#'   `"YYYY-MM-DD"` when the window spans the same day of two years) or
+#'   per hour, and `total` for counts, kg and time, `mean` otherwise.
+#' @export
+#' @examples
+#' mon <- run_monitor(tidypptsda::nedap, verbose = 0)
+#' wide_table(mon$stations, "n_visits")
+#' wide_table(mon$pigs, "feed_kg")
+#' wide_table(mon$hours, "feed_kg")
+wide_table <- function(x, value) {
+  kind <- attr(x, "pptm_table", exact = TRUE)
+  if (!data.table::is.data.table(x) || is.null(kind)) {
+    cli::cli_abort("{.arg x} must be a table from {.fn monitor_stations}, {.fn monitor_houses}, {.fn monitor_pigs} or {.fn monitor_hours}.")
+  }
+  ids <- switch(kind, stations = "location", houses = "house",
+                pigs = c("location", "responder"), hours = "location")
+  col <- if (kind == "hours") "hour" else "date"
+  if (!is.character(value) || length(value) != 1L || !value %in% setdiff(names(x), c(ids, col))) {
+    num <- names(x)[vapply(x, is.numeric, logical(1))]
+    cli::cli_abort("{.arg value} must be one of {.val {setdiff(num, col)}}.")
+  }
+  d <- x[, c(ids, col, value), with = FALSE]
+  data.table::setnames(d, c(ids, ".col", ".value"))
+  if (col == "date") {
+    lab <- format(d$.col, "%m-%d")
+    if (data.table::uniqueN(lab) < data.table::uniqueN(d$.col)) lab <- format(d$.col, "%Y-%m-%d")
+    lv <- unique(lab[order(d$.col)])
+  } else {
+    lab <- sprintf("%02d", d$.col)
+    lv <- sprintf("%02d", 0:23)
+  }
+  d[, .col := factor(lab, levels = lv)]
+  f <- stats::as.formula(paste(paste(ids, collapse = " + "), "~ .col"))
+  res <- data.table::dcast(d, f, value.var = ".value", drop = c(TRUE, FALSE))
+  days <- setdiff(names(res), ids)
+  additive <- value %in% c("n_visits", "n_unidentified", "occupation_h",
+                           "occupation_min", "feed_kg")
+  if (is.numeric(d$.value) && length(days) > 0L) {
+    m <- as.matrix(res[, days, with = FALSE])
+    if (additive) {
+      res[, total := rowSums(m, na.rm = TRUE)]
+    } else {
+      res[, mean := nan_to_na(rowMeans(m, na.rm = TRUE))]
+    }
+  }
+  res <- order_natural(res, ids)
+  round_cols_like(res, value)[]
+}
+
+# Round the value columns of a wide table as the long column.
+round_cols_like <- function(res, value) {
+  d <- if (value %in% c("weight_kg", "last_weight_kg")) 2L
+       else if (endsWith(value, "_kg")) 3L
+       else if (startsWith(value, "pct_")) 1L
+       else if (endsWith(value, "_h")) 2L
+       else if (endsWith(value, "_min")) 1L
+       else 3L
+  for (col in names(res)) {
+    if (is.double(res[[col]])) data.table::set(res, j = col, value = round(res[[col]], d))
+  }
+  res
+}
+```
+
+```{r examples-wide_table}
+mon <- run_monitor(tidypptsda::nedap, verbose = 0)
+wide_table(mon$stations, "n_visits")
+wide_table(mon$pigs, "feed_kg")
+```
+
+```{r tests-wide_table}
+test_that("wide tables", {
+  mon <- run_monitor(tidypptsda::nedap, days = 4, verbose = 0)
+  w <- wide_table(mon$stations, "feed_kg")
+  expect_equal(names(w)[1], "location")
+  expect_equal(ncol(w), 1L + 4L + 1L)
+  expect_true("total" %in% names(w))
+  expect_equal(sum(w$total), sum(mon$stations$feed_kg), tolerance = 1e-4)
+  expect_true("mean" %in% names(wide_table(mon$stations, "weight_kg")))
+  wp <- wide_table(mon$pigs, "feed_kg")
+  expect_equal(names(wp)[1:2], c("location", "responder"))
+  expect_equal(nrow(wp), data.table::uniqueN(mon$pigs$responder))
+  wh <- wide_table(mon$hours, "n_visits")
+  expect_equal(names(wh)[2:25], sprintf("%02d", 0:23))
+  expect_error(wide_table(mon$stations, "nope"), "value")
+  expect_error(wide_table(data.table::data.table(a = 1), "a"), "monitor_stations")
+})
+```
+
+# Plots
+
+`plot_monitor()` draws one plot per station. There are four types:
+
+- `"trend"`: pigs, visits, unidentified visits, occupation time and feed
+  intake over the window; days without any visit are shaded red;
+- `"intake"`: feed intake of every pig on every day as a heat map, with a
+  cross for a day without visit and a circle for a low-feed day;
+- `"weight"`: recorded body weights per day as box plots;
+- `"hours"`: visits, occupation time and feed intake per hour of the last
+  day.
+
+```{r function-plot_monitor}
+#' Plot the Monitor, One Plot per Station
+#'
+#' @param x Result of [run_monitor()].
+#' @param type `"trend"` (default), `"intake"`, `"weight"` or `"hours"`.
+#'   See Details.
+#' @param locations Stations to plot. Default `NULL`: all.
+#'
+#' @details
+#' - `"trend"`: pigs, visits, percentage of unidentified visits, occupation
+#'   time, feed intake and feed intake per pig on each day of the window.
+#'   Days without any visit are shaded red.
+#' - `"intake"`: feed intake (kg) of each pig on each day as a heat map. A
+#'   cross marks a day without visit, a circle a day below `low_feed_kg`.
+#'   With a window of at most 21 days the values are printed in the cells.
+#' - `"weight"`: box plots of the recorded body weights of each day.
+#' - `"hours"`: visits, occupation time and feed intake per hour of the
+#'   last day.
+#'
+#' @return A `data.table` with one row per station: `location`, `type`,
+#'   `plot` (list of ggplot objects), and `width` and `height` (cm) that
+#'   suit the plot when saving it with [save_monitor_plots()].
+#' @seealso [save_monitor_plots()], [write_monitor_report()].
+#' @export
+#' @examples
+#' mon <- run_monitor(tidypptsda::nedap, verbose = 0)
+#' p <- plot_monitor(mon, "intake")
+#' p$plot[[1]]
+#' plot_monitor(mon, "trend", locations = "102")$plot[[1]]
+plot_monitor <- function(x, type = c("trend", "intake", "weight", "hours"),
+                         locations = NULL) {
+  check_monitor(x)
+  type <- match.arg(type)
+  locs <- pick_locations(x, locations)
+  one <- switch(type, trend = plot_trend_one, intake = plot_intake_one,
+                weight = plot_weight_one, hours = plot_hours_one)
+  res <- lapply(locs, function(l) one(x, l))
+  data.table::data.table(
+    location = locs, type = type,
+    plot = lapply(res, `[[`, "plot"),
+    width = vapply(res, `[[`, numeric(1), "width"),
+    height = vapply(res, `[[`, numeric(1), "height")
+  )
+}
+
+pick_locations <- function(x, locations) {
+  all_locs <- natural_order(x$stations$location)
+  if (is.null(locations)) return(all_locs)
+  locations <- as.character(locations)
+  bad <- setdiff(locations, all_locs)
+  if (length(bad) > 0L) {
+    cli::cli_abort(c("Unknown station{?s}: {.val {bad}}.", "i" = "Stations: {.val {all_locs}}."))
+  }
+  all_locs[all_locs %in% locations]
+}
+
+pptm_theme <- function() {
+  ggplot2::theme_bw(base_size = 10) +
+    ggplot2::theme(
+      legend.position = "bottom",
+      strip.background = ggplot2::element_rect(fill = "#F2F2F2"),
+      plot.title = ggplot2::element_text(face = "bold"),
+      plot.subtitle = ggplot2::element_text(colour = "#667085"),
+      axis.text.x = ggplot2::element_text(angle = 45, hjust = 1),
+      panel.grid.minor = ggplot2::element_blank()
+    )
+}
+
+# One tick per day (or every few days for long windows), only inside the
+# window.
+date_scale <- function(s) {
+  step <- max(1L, ceiling(s$days / 14))
+  ggplot2::scale_x_date(breaks = rev(seq(s$end_date, s$start_date, by = -step)),
+                        date_labels = "%m-%d",
+                        limits = c(s$start_date - 0.5, s$end_date + 0.5),
+                        expand = ggplot2::expansion(add = 0.1))
+}
+
+plot_width <- function(days) max(16, 0.7 * days + 8)
+
+empty_plot <- function(title, msg) {
+  ggplot2::ggplot() +
+    ggplot2::annotate("text", x = 0, y = 0, label = msg, colour = "#667085") +
+    ggplot2::labs(title = title) +
+    ggplot2::theme_void() +
+    ggplot2::theme(plot.title = ggplot2::element_text(face = "bold"))
+}
+
+trend_labels <- c(n_pigs = "Pigs", n_visits = "Visits",
+                  pct_unidentified = "Unidentified (%)",
+                  occupation_h = "Occupation (h)", feed_kg = "Feed (kg)",
+                  feed_per_pig_kg = "Feed per pig (kg)")
+
+plot_trend_one <- function(x, l) {
+  s <- x$settings
+  d <- x$stations[location == l]
+  num <- d[, c("date", names(trend_labels)), with = FALSE]
+  num[, (names(trend_labels)) := lapply(.SD, as.numeric), .SDcols = names(trend_labels)]
+  long <- data.table::melt(num, id.vars = "date", measure.vars = names(trend_labels),
+                           variable.name = "metric", value.name = "value",
+                           variable.factor = FALSE)
+  long[, metric := factor(trend_labels[metric], levels = trend_labels)]
+  down <- d[n_visits == 0L, .(date)]
+  p <- ggplot2::ggplot(long, ggplot2::aes(date, value))
+  if (nrow(down) > 0L) {
+    p <- p + ggplot2::geom_rect(data = down, inherit.aes = FALSE,
+                                ggplot2::aes(xmin = date - 0.5, xmax = date + 0.5),
+                                ymin = -Inf, ymax = Inf, fill = "#B42318", alpha = 0.15)
+  }
+  p <- p +
+    ggplot2::geom_line(ggplot2::aes(colour = metric), na.rm = TRUE) +
+    ggplot2::geom_point(ggplot2::aes(colour = metric), size = 1.6, na.rm = TRUE) +
+    ggplot2::facet_grid(metric ~ ., scales = "free_y", switch = "y") +
+    ggplot2::scale_colour_manual(values = pptm_palette(length(trend_labels)), guide = "none") +
+    date_scale(s) +
+    ggplot2::labs(x = NULL, y = NULL, title = paste("Station", l),
+                  subtitle = paste0(format(s$start_date), " to ", format(s$end_date),
+                                    if (nrow(down) > 0L) " \u00b7 red: no visits")) +
+    pptm_theme() +
+    ggplot2::theme(strip.placement = "outside",
+                   strip.text.y.left = ggplot2::element_text(angle = 0, hjust = 1),
+                   strip.background = ggplot2::element_blank())
+  list(plot = p, width = plot_width(s$days), height = 3.2 * length(trend_labels) + 3)
+}
+
+plot_intake_one <- function(x, l) {
+  s <- x$settings
+  d <- x$pigs[location == l]
+  title <- paste("Station", l, "\u00b7 feed intake per pig")
+  if (nrow(d) == 0L) {
+    return(list(plot = empty_plot(title, "No identified pig in the window"),
+                width = 16, height = 6))
+  }
+  lv <- rev(natural_order(d$responder))
+  d[, pig := factor(responder, levels = lv)]
+  top <- max(d$feed_kg, na.rm = TRUE)
+  p <- ggplot2::ggplot(d, ggplot2::aes(date, pig)) +
+    ggplot2::geom_tile(ggplot2::aes(fill = feed_kg), colour = "white", linewidth = 0.5) +
+    ggplot2::scale_fill_gradient(low = "#EEF4FB", high = "#0F4C8A", name = "Feed (kg)",
+                                 limits = c(0, max(top, 0.1)))
+  if (s$days <= 21L) {
+    d[, lab := data.table::fifelse(n_visits > 0L, formatC(feed_kg, format = "f", digits = 1), "")]
+    d[, lab_col := data.table::fifelse(feed_kg > 0.55 * top, "white", "#1D2330")]
+    p <- p + ggplot2::geom_text(data = d, ggplot2::aes(label = lab, colour = lab_col), size = 2.5) +
+      ggplot2::scale_colour_identity()
+  }
+  nv <- d[status == "no_visit"]
+  lf <- d[status == "low_feed"]
+  if (nrow(nv) > 0L) {
+    p <- p + ggplot2::geom_point(data = nv, shape = 4, colour = "#B42318", size = 3, stroke = 1.2)
+  }
+  if (nrow(lf) > 0L) {
+    p <- p + ggplot2::geom_point(data = lf, shape = 21, fill = NA, colour = "#D97706",
+                                 size = 5.5, stroke = 1)
+  }
+  p <- p + date_scale(s) +
+    ggplot2::labs(x = NULL, y = NULL, title = title,
+                  subtitle = paste0("\u00d7 no visit \u00b7 \u25cb below ", format(s$low_feed_kg), " kg")) +
+    pptm_theme() +
+    ggplot2::theme(panel.grid = ggplot2::element_blank(), legend.position = "right")
+  list(plot = p, width = plot_width(s$days) + 3,
+       height = max(8, 0.6 * length(lv) + 4))
+}
+
+plot_weight_one <- function(x, l) {
+  s <- x$settings
+  d <- x$visits[location == l & identified == TRUE & !is.na(weight)]
+  title <- paste("Station", l, "\u00b7 recorded body weights")
+  if (nrow(d) == 0L) {
+    return(list(plot = empty_plot(title, "No body weight in the window"), width = 16, height = 6))
+  }
+  p <- ggplot2::ggplot(d, ggplot2::aes(date, weight, group = date)) +
+    ggplot2::geom_boxplot(fill = "#E6F0FA", colour = "#0F6CBD", outlier.colour = "#B42318",
+                          outlier.size = 0.8, width = 0.7) +
+    date_scale(s) +
+    ggplot2::scale_y_continuous(breaks = function(r) pretty(r, n = 8)) +
+    ggplot2::labs(x = NULL, y = "Body weight (kg)", title = title,
+                  subtitle = "All weights of the identified visits; red: outside the whiskers") +
+    pptm_theme()
+  list(plot = p, width = plot_width(s$days), height = 10)
+}
+
+hour_labels <- c(n_visits = "Visits", occupation_min = "Occupation (min)",
+                 feed_kg = "Feed (kg)")
+
+plot_hours_one <- function(x, l) {
+  s <- x$settings
+  d <- x$hours[location == l, c("hour", names(hour_labels)), with = FALSE]
+  d[, (names(hour_labels)) := lapply(.SD, as.numeric), .SDcols = names(hour_labels)]
+  long <- data.table::melt(d, id.vars = "hour", measure.vars = names(hour_labels),
+                           variable.name = "metric", value.name = "value",
+                           variable.factor = FALSE)
+  long[, metric := factor(hour_labels[metric], levels = hour_labels)]
+  p <- ggplot2::ggplot(long, ggplot2::aes(hour, value, fill = metric)) +
+    ggplot2::geom_col(width = 0.8) +
+    ggplot2::facet_grid(metric ~ ., scales = "free_y", switch = "y") +
+    ggplot2::scale_fill_manual(values = pptm_palette(3), guide = "none") +
+    ggplot2::scale_x_continuous(breaks = 0:23, expand = ggplot2::expansion(add = 0.5)) +
+    ggplot2::labs(x = "Hour of the day", y = NULL,
+                  title = paste("Station", l, "\u00b7 hours of", format(s$end_date))) +
+    pptm_theme() +
+    ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 0, hjust = 0.5),
+                   strip.placement = "outside",
+                   strip.text.y.left = ggplot2::element_text(angle = 0, hjust = 1),
+                   strip.background = ggplot2::element_blank())
+  list(plot = p, width = 18, height = 12)
+}
+```
+
+```{r examples-plot_monitor}
+mon <- run_monitor(tidypptsda::nedap, verbose = 0)
+plot_monitor(mon, "intake")$plot[[1]]
+```
+
+```{r tests-plot_monitor}
+test_that("plots for every type", {
+  mon <- run_monitor(tidypptsda::nedap, days = 5, verbose = 0)
+  for (tp in c("trend", "intake", "weight", "hours")) {
+    p <- plot_monitor(mon, tp)
+    expect_equal(p$location, c("101", "102"))
+    expect_true(all(vapply(p$plot, ggplot2::is.ggplot, logical(1))))
+    expect_true(all(p$width > 0 & p$height > 0))
+  }
+  expect_error(plot_monitor(mon, "trend", locations = "999"), "Unknown station")
+  expect_error(plot_monitor(list()), "run_monitor")
+})
+```
+
+## Saving plots
+
+```{r function-save_monitor_plots}
+#' Save Monitor Plots to Files
+#'
+#' @param plots Result of [plot_monitor()], or several of them bound with
+#'   `rbind()`.
+#' @param path Folder to write to (created if needed).
+#' @param device `"png"` (default) or `"pdf"`.
+#' @param dpi Resolution for PNG files. Default 150.
+#' @param verbose 0 (silent) or 1 (summary, default).
+#'
+#' @return Invisibly, a `data.table` with `location`, `type`, `file` and
+#'   `saved` (`FALSE` when the plot could not be saved; a warning names
+#'   the reason). Files are named `station_<location>_<type>.<device>`.
+#' @export
+#' @examples
+#' mon <- run_monitor(tidypptsda::nedap, verbose = 0)
+#' p <- rbind(plot_monitor(mon, "trend"), plot_monitor(mon, "intake"))
+#' dir <- file.path(tempdir(), "monitor_plots")
+#' save_monitor_plots(p, dir)
+#' unlink(dir, recursive = TRUE)
+save_monitor_plots <- function(plots, path, device = c("png", "pdf"), dpi = 150,
+                               verbose = 1) {
+  local_verbose(verbose)
+  device <- match.arg(device)
+  path <- check_path(path)
+  if (!data.table::is.data.table(plots) ||
+      !all(c("location", "type", "plot", "width", "height") %in% names(plots))) {
+    cli::cli_abort("{.arg plots} must be the result of {.fn plot_monitor}.")
+  }
+  dir.create(path, recursive = TRUE, showWarnings = FALSE)
+  files <- file.path(path, paste0("station_", plots$location, "_", plots$type, ".", device))
+  ok <- vapply(seq_len(nrow(plots)), function(i) {
+    err <- tryCatch({
+      ggplot2::ggsave(files[i], plots$plot[[i]], width = plots$width[i],
+                      height = plots$height[i], units = "cm", dpi = dpi,
+                      device = device, limitsize = FALSE)
+      NA_character_
+    }, error = function(e) conditionMessage(e))
+    if (!is.na(err)) {
+      f <- files[i]
+      pptm_msg("Could not save {.file {f}}: {err}", "warning")
+    }
+    is.na(err)
+  }, logical(1))
+  res <- data.table::data.table(location = plots$location, type = plots$type,
+                                file = files, saved = ok)
+  pptm_msg("Saved {sum(ok)} of {length(ok)} plot{?s} to {.path {path}}",
+           if (all(ok)) "success" else "warning")
+  invisible(res)
+}
+```
+
+```{r examples-save_monitor_plots}
+mon <- run_monitor(tidypptsda::nedap, verbose = 0)
+dir <- file.path(tempdir(), "monitor_plots")
+save_monitor_plots(plot_monitor(mon, "trend"), dir)
+unlink(dir, recursive = TRUE)
+```
+
+```{r tests-save_monitor_plots}
+test_that("plots are saved", {
+  mon <- run_monitor(tidypptsda::nedap, days = 3, verbose = 0)
+  dir <- withr::local_tempdir()
+  res <- save_monitor_plots(rbind(plot_monitor(mon, "trend"), plot_monitor(mon, "hours")),
+                            dir, verbose = 0)
+  expect_true(all(res$saved))
+  expect_true(all(file.exists(res$file)))
+  expect_equal(basename(res$file[1]), "station_101_trend.png")
+  expect_error(save_monitor_plots(list(), dir), "plot_monitor")
+})
+```
+
+# HTML report
+
+`write_monitor_report()` writes the monitor as a small offline website,
+as `write_report()` does in tidypptsda: an overview page with the alerts
+and a table of all stations, then one page per station with its plots and
+its pigs. Turn the pages with the arrow keys and type a pig ID to jump to
+its station.
+
+```{r function-write_monitor_report}
+#' Write an HTML Report to Browse Station by Station
+#'
+#' @description
+#' Write the monitor as a folder with `index.html` and the plots (`img/`).
+#' Open `index.html` in a web browser:
+#' - the first page is an overview of the last day: stations, pigs,
+#'   visits, feed intake, the alerts, a table of all stations and one of
+#'   all houses, and the settings;
+#' - then one page per station: its alerts, the four plots of
+#'   [plot_monitor()] and a table of its pigs.
+#'
+#' Turn the pages with the arrow keys (or Page Up / Page Down, Home, End),
+#' the buttons or the list of stations; type a pig ID in the search box to
+#' jump to its station. Printing the page (e.g. to PDF) prints every page.
+#' The folder works offline and can be copied or zipped as a whole.
+#'
+#' @param x Result of [run_monitor()].
+#' @param path Folder to write to (created if needed). Files of an earlier
+#'   report in the folder are overwritten.
+#' @param title Title of the report. Default: station type and window.
+#' @param locations Stations to include. Default `NULL`: all.
+#' @param dpi Resolution of the plots. Default 150.
+#' @param open Open the report in the web browser when done. Default
+#'   `FALSE`.
+#' @param verbose 0 (silent) or 1 (summary, default).
+#'
+#' @return Invisibly, the path of `index.html`.
+#' @seealso [write_monitor_tables()] for the Excel workbook.
+#' @export
+#' @examples
+#' mon <- run_monitor(tidypptsda::nedap, verbose = 0)
+#' dir <- file.path(tempdir(), "monitor_report")
+#' write_monitor_report(mon, dir)
+#' # then open file.path(dir, "index.html") in a web browser
+#' unlink(dir, recursive = TRUE)
+write_monitor_report <- function(x, path, title = NULL, locations = NULL,
+                                 dpi = 150, open = FALSE, verbose = 1) {
+  local_verbose(verbose)
+  check_monitor(x)
+  path <- check_path(path)
+  locs <- pick_locations(x, locations)
+  img <- file.path(path, "img")
+  dir.create(img, recursive = TRUE, showWarnings = FALSE)
+
+  types <- c("trend", "intake", "weight", "hours")
+  plots <- data.table::rbindlist(lapply(types, function(tp) plot_monitor(x, tp, locs)))
+  sv <- save_monitor_plots(plots, img, dpi = dpi, verbose = 0)
+  bad <- sv[saved == FALSE]
+  if (nrow(bad) > 0L) {
+    pptm_msg("{nrow(bad)} plot{?s} could not be saved.", "warning")
+  }
+  files <- sv[saved == TRUE, .(location, type, file = basename(file))]
+
+  title <- title %||% monitor_title(x)
+  html <- monitor_html(x, locs, files, title)
+  out <- file.path(path, "index.html")
+  writeLines(enc2utf8(html), out, useBytes = TRUE)
+  pptm_msg("Report of {length(locs)} station{?s} written to {.path {out}}", "success")
+  if (isTRUE(open)) utils::browseURL(normalizePath(out))
+  invisible(out)
+}
+
+monitor_title <- function(x) {
+  s <- x$settings
+  paste0(trimws(paste(toupper(s$station), "station monitor")), ", ",
+         format(s$start_date), " to ", format(s$end_date))
+}
+
+html_esc <- function(x) {
+  x <- as.character(x)
+  x[is.na(x)] <- ""
+  x <- gsub("&", "&amp;", x, fixed = TRUE)
+  x <- gsub("<", "&lt;", x, fixed = TRUE)
+  x <- gsub(">", "&gt;", x, fixed = TRUE)
+  gsub("\"", "&quot;", x, fixed = TRUE)
+}
+
+# Number for a table cell: "" for NA.
+html_num <- function(x, digits = 0) {
+  out <- formatC(x, format = "f", digits = digits, big.mark = ",")
+  out[is.na(x)] <- ""
+  out
+}
+
+status_label <- c(ok = "ok", low_feed = "low feed", no_visit = "no visit",
+                  danger = "danger", warning = "warning")
+
+html_tag <- function(s) {
+  paste0("<span class=\"tag s-", s, "\">", html_esc(status_label[s]), "</span>")
+}
+
+html_table <- function(head, rows) {
+  paste0("<div class=\"scroll\"><table class=\"pigs\"><thead><tr>", head,
+         "</tr></thead><tbody>", paste(rows, collapse = "\n"), "</tbody></table></div>")
+}
+
+html_alerts <- function(a, page_of, link = TRUE) {
+  if (nrow(a) == 0L) return("<p class=\"muted\">None.</p>")
+  st <- if (link) {
+    paste0("<a href=\"#p-", page_of[a$location], "\" data-page=\"", page_of[a$location], "\">",
+           html_esc(a$location), "</a>")
+  } else html_esc(a$location)
+  pig <- ifelse(is.na(a$responder), "",
+                if (link) paste0("<a href=\"#p-", page_of[a$location], "\" data-page=\"",
+                                 page_of[a$location], "\" data-pig=\"", html_esc(a$responder), "\">",
+                                 html_esc(a$responder), "</a>")
+                else html_esc(a$responder))
+  rows <- paste0("<tr><td>", html_tag(a$level), "</td><td class=\"id\">", st,
+                 "</td><td class=\"id\">", pig, "</td><td>", html_esc(gsub("_", " ", a$type)),
+                 "</td><td class=\"note\">", html_esc(a$message), "</td></tr>")
+  html_table("<th>Level</th><th>Station</th><th>Pig</th><th>Alert</th><th>Detail</th>", rows)
+}
+
+html_station_rows <- function(last, page_of, n_alerts) {
+  na <- n_alerts[last$location]
+  na[is.na(na)] <- 0L
+  paste0("<tr", ifelse(last$n_visits == 0L, " class=\"s-down\"", ""), "><td class=\"id\">",
+         "<a href=\"#p-", page_of[last$location], "\" data-page=\"", page_of[last$location], "\">",
+         html_esc(last$location), "</a></td>",
+         "<td class=\"n\">", html_num(last$n_pigs), "</td>",
+         "<td class=\"n\">", html_num(last$n_visits), "</td>",
+         "<td class=\"n\">", html_num(last$pct_unidentified, 1), "</td>",
+         "<td class=\"n\">", html_num(last$occupation_h, 1), "</td>",
+         "<td class=\"n\">", html_num(last$feed_kg, 1), "</td>",
+         "<td class=\"n\">", html_num(last$feed_per_pig_kg, 2), "</td>",
+         "<td class=\"n\">", html_num(last$weight_kg, 1), "</td>",
+         "<td class=\"n\">", html_num(last$pct_weight_outlier, 1), "</td>",
+         "<td class=\"n", ifelse(na > 0L, " warn", ""), "\">", na, "</td></tr>")
+}
+
+station_head <- paste0(
+  "<th>Station</th><th class=\"n\">Pigs</th><th class=\"n\">Visits</th>",
+  "<th class=\"n\">Unidentified<br><small>%</small></th>",
+  "<th class=\"n\">Occupation<br><small>h</small></th>",
+  "<th class=\"n\">Feed<br><small>kg</small></th>",
+  "<th class=\"n\">Feed per pig<br><small>kg</small></th>",
+  "<th class=\"n\">Weight<br><small>kg</small></th>",
+  "<th class=\"n\">Weight outliers<br><small>%</small></th>",
+  "<th class=\"n\">Alerts</th>")
+
+html_pig_table <- function(d) {
+  if (nrow(d) == 0L) return("<p class=\"muted\">No identified pig in the window.</p>")
+  id <- html_esc(d$responder)
+  rows <- paste0(
+    "<tr id=\"pig-", id, "\"><td class=\"id\">", id, "</td>",
+    "<td>", html_tag(d$status), "</td>",
+    "<td class=\"n\">", html_num(d$last_visits), "</td>",
+    "<td class=\"n\">", html_num(d$last_feed_kg, 2), "</td>",
+    "<td class=\"n\">", html_num(d$mean_feed_kg, 2), "</td>",
+    "<td class=\"n", ifelse(d$low_feed_days > 0L, " warn", ""), "\">", d$low_feed_days, "</td>",
+    "<td class=\"n", ifelse(d$no_visit_days > 0L, " warn", ""), "\">", d$no_visit_days, "</td>",
+    "<td class=\"n\">", html_num(d$days_since_visit), "</td>",
+    "<td class=\"n\">", html_num(d$last_weight_kg, 1), "</td></tr>")
+  html_table(paste0(
+    "<th>Pig</th><th>Status</th><th class=\"n\">Visits</th>",
+    "<th class=\"n\">Feed<br><small>kg</small></th>",
+    "<th class=\"n\">Mean feed<br><small>kg/d</small></th>",
+    "<th class=\"n\">Low-feed<br><small>days</small></th>",
+    "<th class=\"n\">No-visit<br><small>days</small></th>",
+    "<th class=\"n\">Days since<br><small>visit</small></th>",
+    "<th class=\"n\">Weight<br><small>kg</small></th>"), rows)
+}
+
+monitor_html <- function(x, locs, files, title) {
+  s <- x$settings
+  page_of <- stats::setNames(seq_along(locs), locs)
+  last <- x$stations[date == s$end_date & location %in% locs]
+  last <- last[match(locs, location)]
+  a <- x$alerts[location %in% locs]
+  n_alerts <- table(factor(a$location, levels = locs))
+  n_alerts <- stats::setNames(as.integer(n_alerts), names(n_alerts))
+  ps <- x$pig_summary[location %in% locs]
+  ps_rec <- ps[location %in% last[n_visits > 0L, location]]
+
+  card <- function(label, value, sub = "") {
+    paste0("<div class=\"card\"><div class=\"label\">", label, "</div><div class=\"value\">",
+           value, "</div><div class=\"sub\">", sub, "</div></div>")
+  }
+  n_down <- sum(last$n_visits == 0L)
+  vis <- sum(last$n_visits)
+  unid <- sum(last$n_unidentified)
+  feed <- sum(last$feed_kg)
+  cards <- paste0(
+    "<div class=\"cards\">",
+    card("Stations", length(locs),
+         if (n_down > 0L) paste0("<span class=\"warn\">", n_down, " without visits</span>")
+         else "all recording"),
+    card("Pigs", nrow(ps), paste0(sum(ps_rec$status == "no_visit"), " no visit &middot; ",
+                                  sum(ps_rec$status == "low_feed"), " low feed",
+                                  if (n_down > 0L) " (recording stations)")),
+    card("Visits", html_num(vis), paste0(html_num(if (vis > 0) 100 * unid / vis else NA, 1),
+                                         "% unidentified")),
+    card("Feed intake", paste0(html_num(feed, 1), " kg"),
+         paste0(html_num(if (sum(last$n_pigs) > 0L)
+                           sum(last$feed_per_pig_kg * last$n_pigs, na.rm = TRUE) / sum(last$n_pigs)
+                         else NA, 2), " kg per pig")),
+    card("Alerts", nrow(a), paste0(sum(a$level == "danger"), " danger &middot; ",
+                                   sum(a$level == "warning"), " warning")),
+    "</div>")
+
+  set_val <- function(v) html_esc(paste(as.character(v), collapse = ", "))
+  settings <- c(
+    "Window" = paste0(format(s$start_date), " to ", format(s$end_date), " (", s$days, " days)"),
+    "Low feed" = paste0("below ", set_val(s$low_feed_kg), " kg per day"),
+    "Unidentified visits" = paste0("alert above ", set_val(s$max_unidentified_pct), "%"),
+    "Feed drop" = paste0("alert more than ", set_val(s$max_feed_drop_pct), "% below the mean of the earlier days"),
+    "Weight outliers" = paste0("Tukey fences, k = ", set_val(s$iqr_k)),
+    "House" = paste0("first ", s$house_width, " character", if (s$house_width > 1L) "s", " of the station ID"),
+    "Package" = paste0("tidypptsdm ", utils::packageVersion("tidypptsdm"),
+                       ", tidypptsda ", utils::packageVersion("tidypptsda"))
+  )
+  settings_html <- paste0("<dl class=\"settings\">",
+                          paste0("<dt>", names(settings), "</dt><dd>", settings, "</dd>", collapse = ""),
+                          "</dl>")
+  hl <- x$houses[date == s$end_date]
+  house_html <- html_table(
+    paste0("<th>House</th><th class=\"n\">Stations</th><th class=\"n\">Pigs</th>",
+           "<th class=\"n\">Visits</th><th class=\"n\">Feed<br><small>kg</small></th>",
+           "<th class=\"n\">Feed per pig<br><small>kg</small></th>",
+           "<th class=\"n\">Weight<br><small>kg</small></th>"),
+    paste0("<tr><td class=\"id\">", html_esc(hl$house), "</td><td class=\"n\">", hl$n_stations,
+           "</td><td class=\"n\">", hl$n_pigs, "</td><td class=\"n\">", html_num(hl$n_visits),
+           "</td><td class=\"n\">", html_num(hl$feed_kg, 1), "</td><td class=\"n\">",
+           html_num(hl$feed_per_pig_kg, 2), "</td><td class=\"n\">", html_num(hl$weight_kg, 1),
+           "</td></tr>"))
+  overview <- paste0(
+    "<section class=\"page\" id=\"p-0\" data-title=\"Overview\">",
+    "<h1>Overview</h1><p class=\"lead\">Last day: ", format(s$end_date), "</p>", cards,
+    "<h2>Alerts", if (nrow(a) > 0L) paste0(" <span class=\"count\">", nrow(a), "</span>"), "</h2>",
+    html_alerts(a, page_of),
+    "<h2>Stations on ", format(s$end_date), "</h2>",
+    html_table(station_head, html_station_rows(last, page_of, n_alerts)),
+    "<h2>Houses on ", format(s$end_date), "</h2>", house_html,
+    "<h2>Settings</h2>", settings_html, "</section>")
+
+  fig <- function(l, tp, cap) {
+    f <- files[location == l & type == tp, file]
+    if (length(f) == 0L) return("")
+    src <- paste0("img/", utils::URLencode(f[1L], reserved = TRUE))
+    paste0("<figure><a href=\"", src, "\" target=\"_blank\" title=\"Open the full-size plot\">",
+           "<img loading=\"lazy\" src=\"", src, "\" alt=\"", html_esc(cap), "\"></a>",
+           "<figcaption>", cap, "</figcaption></figure>")
+  }
+  station_pages <- vapply(locs, function(l) {
+    b <- last[location == l]
+    al <- a[location == l]
+    sub <- paste0(b$n_pigs, " pig", if (b$n_pigs != 1L) "s", " &middot; ",
+                  html_num(b$n_visits), " visits &middot; ", html_num(b$feed_kg, 1),
+                  " kg feed on ", format(s$end_date),
+                  if (b$n_visits == 0L) " &middot; <span class=\"warn\">no visits</span>")
+    paste0("<section class=\"page\" id=\"p-", page_of[[l]], "\" data-title=\"Station ",
+           html_esc(l), "\" hidden><h1>Station ", html_esc(l), "</h1><p class=\"lead\">", sub, "</p>",
+           if (nrow(al) > 0L) paste0("<h2>Alerts <span class=\"count\">", nrow(al), "</span></h2>",
+                                     html_alerts(al, page_of, link = FALSE)),
+           fig(l, "trend", "Daily trend over the window; red: days without visits"),
+           fig(l, "intake", "Feed intake per pig and day; &times; no visit, &#9675; low feed"),
+           "<h2>Pigs</h2>", html_pig_table(ps[location == l]),
+           fig(l, "weight", "Recorded body weights per day"),
+           fig(l, "hours", paste("Visits, occupation and feed intake per hour of", format(s$end_date))),
+           "</section>")
+  }, "")
+
+  nav <- paste0("<a href=\"#p-0\" data-page=\"0\" class=\"nav-item\">Overview</a>",
+                paste0("<a href=\"#p-", page_of, "\" data-page=\"", page_of,
+                       "\" class=\"nav-item\">Station ", html_esc(locs),
+                       ifelse(n_alerts[locs] > 0L,
+                              paste0(" <span class=\"badge\" title=\"alerts\">", n_alerts[locs], "</span>"),
+                              ""),
+                       "</a>", collapse = ""))
+  pig_map <- if (nrow(ps) > 0L) {
+    paste0("{", paste0("\"", gsub("([\"\\\\])", "\\\\\\1", ps$responder), "\":",
+                       page_of[ps$location], collapse = ","), "}")
+  } else "{}"
+
+  tpl <- report_template()
+  repl <- c("{{TITLE}}" = html_esc(title), "{{NAV}}" = nav,
+            "{{PAGES}}" = paste(c(overview, station_pages), collapse = "\n"),
+            "{{PIGS}}" = pig_map, "{{DATE}}" = format(Sys.Date()))
+  for (k in names(repl)) tpl <- gsub(k, repl[[k]], tpl, fixed = TRUE)
+  tpl
+}
+
+report_template <- function() {
+  r"---(<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<style>
+:root { --bg:#f6f7f9; --panel:#fff; --ink:#1d2330; --muted:#667085; --line:#e3e6eb;
+  --accent:#0f6cbd; --accent-soft:#e6f0fa; --ok:#1a7f4b; --ok-soft:#e5f4ec; --warn:#a15c00;
+  --warn-soft:#fdf1df; --bad:#b42318; --bad-soft:#fdecea; --hit:#fff3b0; }
+@media (prefers-color-scheme: dark) { :root { --bg:#14171c; --panel:#1c2027; --ink:#e7eaf0;
+  --muted:#98a2b3; --line:#2e343d; --accent:#6cb4f5; --accent-soft:#1d3247; --ok:#5fcf93;
+  --ok-soft:#183427; --warn:#f2b45c; --warn-soft:#3a2c17; --bad:#f5877d; --bad-soft:#3d1f1d;
+  --hit:#4a4214; } figure img { background:#fff; } }
+* { box-sizing:border-box; }
+html, body { margin:0; background:var(--bg); color:var(--ink);
+  font:15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+a { color:var(--accent); text-decoration:none; } a:hover { text-decoration:underline; }
+header { position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:12px;
+  padding:10px 16px; background:var(--panel); border-bottom:1px solid var(--line); }
+header .title { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; min-width:0; }
+header .title small { color:var(--muted); font-weight:400; margin-left:8px; }
+.pager { display:flex; align-items:center; gap:6px; }
+button { font:inherit; border:1px solid var(--line); background:var(--panel); color:var(--ink);
+  border-radius:6px; padding:5px 11px; cursor:pointer; }
+button:hover:not(:disabled) { border-color:var(--accent); color:var(--accent); }
+button:disabled { opacity:.4; cursor:default; }
+#counter { min-width:64px; text-align:center; color:var(--muted); font-variant-numeric:tabular-nums; }
+#search { font:inherit; width:150px; padding:5px 9px; border:1px solid var(--line); border-radius:6px;
+  background:var(--bg); color:var(--ink); }
+#search.miss { border-color:var(--bad); }
+#menu { display:none; }
+.layout { display:flex; align-items:flex-start; }
+nav { position:sticky; top:53px; width:200px; flex:none; max-height:calc(100vh - 53px); overflow:auto;
+  padding:10px 8px; border-right:1px solid var(--line); background:var(--panel); min-height:calc(100vh - 53px); }
+.nav-item { display:flex; justify-content:space-between; align-items:center; padding:5px 10px;
+  border-radius:6px; color:var(--ink); }
+.nav-item:hover { background:var(--bg); text-decoration:none; }
+.nav-item.active { background:var(--accent-soft); color:var(--accent); font-weight:600; }
+.badge { background:var(--warn-soft); color:var(--warn); border-radius:10px; padding:0 7px;
+  font-size:12px; font-weight:600; }
+main { flex:1; min-width:0; padding:20px 28px 60px; max-width:1200px; }
+h1 { font-size:24px; margin:0 0 4px; } h2 { font-size:17px; margin:28px 0 10px; }
+.lead, .muted { color:var(--muted); margin-top:0; } .warn { color:var(--warn); font-weight:600; }
+.count { background:var(--warn-soft); color:var(--warn); border-radius:10px; padding:0 8px; font-size:13px; }
+.cards { display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:12px; margin:16px 0; }
+.card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
+.card .label { color:var(--muted); font-size:13px; } .card .value { font-size:24px; font-weight:600;
+  font-variant-numeric:tabular-nums; } .card .sub { color:var(--muted); font-size:12px; }
+.settings { display:grid; grid-template-columns:max-content 1fr; gap:4px 18px; margin:0;
+  background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
+.settings dt { color:var(--muted); } .settings dd { margin:0; }
+figure { margin:16px 0; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px; }
+figure img { display:block; width:100%; height:auto; border-radius:4px; }
+figcaption { color:var(--muted); font-size:13px; margin-top:6px; }
+.scroll { overflow-x:auto; background:var(--panel); border:1px solid var(--line); border-radius:10px; }
+table.pigs { border-collapse:collapse; width:100%; font-size:14px; }
+.pigs th, .pigs td { padding:6px 10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+.pigs th { color:var(--muted); font-weight:500; font-size:13px; background:var(--panel); white-space:nowrap; }
+.pigs tr:last-child td { border-bottom:0; }
+.pigs .n { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.pigs .id { font-weight:600; white-space:nowrap; } .pigs .note { color:var(--muted); min-width:200px; }
+tr.s-down td { background:var(--bad-soft); }
+tr.hit td { background:var(--hit); transition:background .3s; }
+.tag { display:inline-block; border-radius:10px; padding:0 8px; font-size:12px; font-weight:600; white-space:nowrap; }
+.tag.s-ok { background:var(--ok-soft); color:var(--ok); }
+.tag.s-low_feed, .tag.s-warning { background:var(--warn-soft); color:var(--warn); }
+.tag.s-no_visit, .tag.s-danger { background:var(--bad-soft); color:var(--bad); }
+.keys { color:var(--muted); font-size:12px; margin-top:40px; }
+kbd { border:1px solid var(--line); border-radius:4px; padding:0 5px; font-size:11px; background:var(--panel); }
+@media (max-width: 760px) {
+  #menu { display:inline-block; } header { flex-wrap:wrap; } header .title { flex-basis:calc(100% - 60px); }
+  #search { width:110px; } nav { display:none; position:fixed; top:auto; left:0; z-index:4; height:100vh;
+    box-shadow:0 0 20px rgba(0,0,0,.2); } nav.open { display:block; } main { padding:16px; }
+}
+@media print {
+  header, nav, .keys { display:none !important; } .page { display:block !important; page-break-after:always; }
+  main { padding:0; max-width:none; } body { background:#fff; }
+}
+</style>
+</head>
+<body>
+<header>
+  <button id="menu" aria-label="Stations">&#9776;</button>
+  <div class="title">{{TITLE}}<small id="pagetitle"></small></div>
+  <input id="search" type="search" placeholder="Pig ID" aria-label="Find a pig" autocomplete="off">
+  <div class="pager">
+    <button id="prev" title="Previous (&larr;)">&larr;</button>
+    <span id="counter"></span>
+    <button id="next" title="Next (&rarr;)">&rarr;</button>
+  </div>
+</header>
+<div class="layout">
+<nav id="nav">{{NAV}}</nav>
+<main>
+{{PAGES}}
+<p class="keys"><kbd>&larr;</kbd> <kbd>&rarr;</kbd> turn pages &middot; <kbd>Home</kbd> overview &middot;
+<kbd>End</kbd> last station &middot; <kbd>/</kbd> find a pig &middot; written {{DATE}} with tidypptsdm</p>
+</main>
+</div>
+<script>
+(function () {
+  var PIGS = {{PIGS}};
+  var pages = Array.prototype.slice.call(document.querySelectorAll(".page"));
+  var links = Array.prototype.slice.call(document.querySelectorAll(".nav-item"));
+  var n = pages.length, cur = -1;
+  var prev = document.getElementById("prev"), next = document.getElementById("next");
+  var counter = document.getElementById("counter"), ptitle = document.getElementById("pagetitle");
+  var search = document.getElementById("search"), nav = document.getElementById("nav");
+  function show(i, pig) {
+    i = Math.max(0, Math.min(n - 1, i));
+    if (i !== cur) {
+      pages.forEach(function (p, k) { p.hidden = k !== i; });
+      links.forEach(function (a, k) { a.classList.toggle("active", k === i); });
+      cur = i;
+      counter.textContent = i === 0 ? "Overview" : i + " / " + (n - 1);
+      ptitle.textContent = i === 0 ? "" : pages[i].getAttribute("data-title");
+      prev.disabled = i === 0; next.disabled = i === n - 1;
+      if (links[i] && links[i].scrollIntoView) links[i].scrollIntoView({ block: "nearest" });
+      window.scrollTo(0, 0);
+    }
+    var hash = pig ? "#pig-" + encodeURIComponent(pig) : "#p-" + i;
+    if (location.hash !== hash) history.replaceState(null, "", hash);
+    if (pig) {
+      var row = document.getElementById("pig-" + pig);
+      if (row) {
+        row.classList.add("hit");
+        row.scrollIntoView({ block: "center" });
+        setTimeout(function () { row.classList.remove("hit"); }, 2500);
+      }
+    }
+    nav.classList.remove("open");
+  }
+  function fromHash() {
+    var h = decodeURIComponent(location.hash || "");
+    var m = /^#p-(\d+)$/.exec(h);
+    if (m) return show(+m[1]);
+    m = /^#pig-(.+)$/.exec(h);
+    if (m && PIGS.hasOwnProperty(m[1])) return show(PIGS[m[1]], m[1]);
+    show(0);
+  }
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest ? e.target.closest("[data-page]") : null;
+    if (!a) return;
+    e.preventDefault();
+    show(+a.getAttribute("data-page"), a.getAttribute("data-pig"));
+  });
+  prev.onclick = function () { show(cur - 1); };
+  next.onclick = function () { show(cur + 1); };
+  document.getElementById("menu").onclick = function () { nav.classList.toggle("open"); };
+  search.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") { search.value = ""; search.blur(); return; }
+    if (e.key !== "Enter") return;
+    var v = search.value.trim();
+    if (PIGS.hasOwnProperty(v)) { search.classList.remove("miss"); show(PIGS[v], v); }
+    else search.classList.add("miss");
+  });
+  search.addEventListener("input", function () { search.classList.remove("miss"); });
+  document.addEventListener("keydown", function (e) {
+    if (e.target === search || e.altKey || e.ctrlKey || e.metaKey) return;
+    if (e.key === "ArrowRight" || e.key === "PageDown") { show(cur + 1); e.preventDefault(); }
+    else if (e.key === "ArrowLeft" || e.key === "PageUp") { show(cur - 1); e.preventDefault(); }
+    else if (e.key === "Home") { show(0); e.preventDefault(); }
+    else if (e.key === "End") { show(n - 1); e.preventDefault(); }
+    else if (e.key === "/") { search.focus(); e.preventDefault(); }
+  });
+  window.addEventListener("hashchange", fromHash);
+  fromHash();
+})();
+</script>
+</body>
+</html>
+)---"
+}
+```
+
+```{r examples-write_monitor_report}
+mon <- run_monitor(tidypptsda::nedap, verbose = 0)
+dir <- file.path(tempdir(), "monitor_report")
+write_monitor_report(mon, dir)
+unlink(dir, recursive = TRUE)
+```
+
+```{r tests-write_monitor_report}
+test_that("the report has an overview and one page per station", {
+  mon <- run_monitor(tidypptsda::nedap, days = 5, verbose = 0)
+  dir <- withr::local_tempdir()
+  f <- write_monitor_report(mon, dir, verbose = 0)
+  expect_true(file.exists(f))
+  html <- paste(readLines(f, encoding = "UTF-8"), collapse = "\n")
+  expect_match(html, "id=\"p-0\"")
+  expect_match(html, "Station 101")
+  expect_match(html, "Station 102")
+  expect_false(grepl("{{", html, fixed = TRUE))
+  expect_equal(length(list.files(file.path(dir, "img"))), 2L * 4L)
+  f2 <- write_monitor_report(mon, withr::local_tempdir(), locations = "102", verbose = 0)
+  expect_false(grepl("Station 101", paste(readLines(f2), collapse = "")))
+  expect_error(write_monitor_report(mon, ""), "path")
+})
+```
+
+# Excel workbook and CSV files
+
+```{r function-write_monitor_tables}
+#' Write the Monitor Tables to Excel or CSV
+#'
+#' @description
+#' Write the tables of [run_monitor()] as one Excel workbook, with a colour
+#' scale on every wide sheet, or as CSV files.
+#'
+#' @param x Result of [run_monitor()].
+#' @param path Folder to write to (created if needed).
+#' @param format `"xlsx"` (default; needs the openxlsx package) or
+#'   `"csv"`.
+#' @param file File name without extension (xlsx) or prefix of the file
+#'   names (csv). Default `"monitor"`.
+#' @param verbose 0 (silent) or 1 (summary, default).
+#'
+#' @section Sheets:
+#' The workbook has the long tables `Alerts`, `Stations`, `Houses`, `Pigs`
+#' (the `pig_summary` of [run_monitor()]) and `Pig days`, and wide sheets
+#' (see [wide_table()]) with a colour scale from red (a possible problem)
+#' over yellow to green:
+#'
+#' | Sheet | Values | Red for |
+#' |---|---|---|
+#' | `Visits` | visits per station and day | low |
+#' | `Unidentified pct` | unidentified visits, % | high |
+#' | `Feed kg` | feed intake per station | low |
+#' | `Feed per pig kg` | feed intake per pig | low |
+#' | `Occupation h` | occupation time | low |
+#' | `Weight outliers pct` | body weight outliers, % | high |
+#' | `House feed per pig kg` | feed intake per pig and house | low |
+#' | `House weight kg` | mean body weight per house | (blue scale) |
+#' | `Pig feed kg` | feed intake per pig and day | low |
+#' | `Hours visits`, `Hours feed kg` | per hour of the last day | (blue scale) |
+#'
+#' The CSV files are the long tables `<file>_alerts.csv`,
+#' `<file>_stations.csv`, `<file>_houses.csv`, `<file>_pigs.csv`,
+#' `<file>_pig_days.csv` and `<file>_hours.csv`, written with a byte order
+#' mark so that Excel opens them in UTF-8.
+#'
+#' @return Invisibly, the path(s) of the written file(s).
+#' @export
+#' @examples
+#' mon <- run_monitor(tidypptsda::nedap, verbose = 0)
+#' dir <- file.path(tempdir(), "monitor_tables")
+#' write_monitor_tables(mon, dir, format = "csv")
+#' if (requireNamespace("openxlsx", quietly = TRUE)) {
+#'   write_monitor_tables(mon, dir)
+#' }
+#' unlink(dir, recursive = TRUE)
+write_monitor_tables <- function(x, path, format = c("xlsx", "csv"),
+                                 file = "monitor", verbose = 1) {
+  local_verbose(verbose)
+  check_monitor(x)
+  path <- check_path(path)
+  format <- match.arg(format)
+  if (!is.character(file) || length(file) != 1L || !nzchar(file)) {
+    cli::cli_abort("{.arg file} must be a file name.")
+  }
+  dir.create(path, recursive = TRUE, showWarnings = FALSE)
+  long <- list(alerts = x$alerts, stations = x$stations, houses = x$houses,
+               pigs = x$pig_summary, pig_days = x$pigs, hours = x$hours)
+  if (format == "csv") {
+    out <- file.path(path, paste0(file, "_", names(long), ".csv"))
+    for (i in seq_along(long)) data.table::fwrite(long[[i]], out[i], bom = TRUE)
+    pptm_msg("Wrote {length(out)} CSV file{?s} to {.path {path}}", "success")
+    return(invisible(out))
+  }
+  if (!requireNamespace("openxlsx", quietly = TRUE)) {
+    cli::cli_abort(c("Writing Excel files needs the {.pkg openxlsx} package.",
+                     "i" = "Install it with {.code install.packages(\"openxlsx\")}, or use {.code format = \"csv\"}."))
+  }
+  st <- x$stations
+  sheets <- list(
+    list("Alerts", x$alerts, NULL, 0L),
+    list("Stations", st, NULL, 1L),
+    list("Visits", wide_table(st, "n_visits"), "low", 1L),
+    list("Unidentified pct", wide_table(st, "pct_unidentified"), "high", 1L),
+    list("Feed kg", wide_table(st, "feed_kg"), "low", 1L),
+    list("Feed per pig kg", wide_table(st, "feed_per_pig_kg"), "low", 1L),
+    list("Occupation h", wide_table(st, "occupation_h"), "low", 1L),
+    list("Weight outliers pct", wide_table(st, "pct_weight_outlier"), "high", 1L),
+    list("Houses", x$houses, NULL, 1L),
+    list("House feed per pig kg", wide_table(x$houses, "feed_per_pig_kg"), "low", 1L),
+    list("House weight kg", wide_table(x$houses, "weight_kg"), "blue", 1L),
+    list("Pigs", x$pig_summary, NULL, 2L),
+    list("Pig feed kg", wide_table(x$pigs, "feed_kg"), "low", 2L),
+    list("Pig days", x$pigs, NULL, 2L),
+    list("Hours visits", wide_table(x$hours, "n_visits"), "blue", 1L),
+    list("Hours feed kg", wide_table(x$hours, "feed_kg"), "blue", 1L)
+  )
+  wb <- openxlsx::createWorkbook()
+  head_style <- openxlsx::createStyle(textDecoration = "bold", halign = "center",
+                                      fgFill = "#F2F2F2", border = "bottom")
+  colours <- list(low = c("#F8696B", "#FFEB84", "#63BE7B"),
+                  high = c("#63BE7B", "#FFEB84", "#F8696B"),
+                  blue = c("#FFFFFF", "#9DC3E6", "#2E75B6"))
+  for (sh in sheets) {
+    name <- sh[[1L]]
+    d <- sh[[2L]]
+    n_id <- sh[[4L]]
+    openxlsx::addWorksheet(wb, name)
+    openxlsx::writeData(wb, name, d, headerStyle = head_style)
+    openxlsx::freezePane(wb, name, firstActiveRow = 2L, firstActiveCol = n_id + 1L)
+    openxlsx::setColWidths(wb, name, cols = seq_len(max(1L, ncol(d))), widths = "auto")
+    if (!is.null(sh[[3L]]) && nrow(d) > 0L && ncol(d) > n_id) {
+      openxlsx::conditionalFormatting(wb, name, cols = (n_id + 1L):ncol(d),
+                                      rows = 2:(nrow(d) + 1L), type = "colorScale",
+                                      style = colours[[sh[[3L]]]])
+    }
+  }
+  out <- file.path(path, paste0(file, ".xlsx"))
+  openxlsx::saveWorkbook(wb, out, overwrite = TRUE)
+  pptm_msg("Wrote {.file {out}} ({length(sheets)} sheets)", "success")
+  invisible(out)
+}
+```
+
+```{r examples-write_monitor_tables}
+mon <- run_monitor(tidypptsda::nedap, verbose = 0)
+dir <- file.path(tempdir(), "monitor_tables")
+write_monitor_tables(mon, dir, format = "csv")
+unlink(dir, recursive = TRUE)
+```
+
+```{r tests-write_monitor_tables}
+test_that("tables are written as CSV and Excel", {
+  mon <- run_monitor(tidypptsda::fire, days = 5, verbose = 0)
+  dir <- withr::local_tempdir()
+  csv <- write_monitor_tables(mon, dir, format = "csv", verbose = 0)
+  expect_equal(length(csv), 6L)
+  expect_true(all(file.exists(csv)))
+  back <- data.table::fread(csv[2])
+  expect_equal(nrow(back), nrow(mon$stations))
+  skip_if_not_installed("openxlsx")
+  xl <- write_monitor_tables(mon, dir, verbose = 0)
+  expect_true(file.exists(xl))
+  sh <- openxlsx::getSheetNames(xl)
+  expect_equal(length(sh), 16L)
+  expect_true(all(c("Alerts", "Feed kg", "Pig feed kg", "Hours visits") %in% sh))
+  expect_equal(nrow(openxlsx::read.xlsx(xl, "Feed kg")), data.table::uniqueN(mon$stations$location))
+  expect_error(write_monitor_tables(mon, dir, file = ""), "file")
+})
+```
+
+# Run every day
+
+`schedule_monitor()` writes an R script that reads the export folder,
+runs the monitor and writes the report and the workbook into a folder
+named after the last day. On Windows the script is registered in the
+Task Scheduler (with the taskscheduleR package). On Linux and macOS the
+function prints the line to add with `crontab -e`.
+
+```{r function-schedule_monitor}
+#' Run the Monitor Every Day
+#'
+#' @description
+#' Write an R script that runs the whole monitor on a folder of station
+#' exports, and schedule it to run every day:
+#' - on Windows it is registered in the Task Scheduler with the
+#'   taskscheduleR package;
+#' - on Linux and macOS the line to add to the crontab (`crontab -e`) is
+#'   printed.
+#'
+#' Every run reads all exports in `folder` ([read_station()]), runs
+#' [run_monitor()], and writes [write_monitor_report()] and
+#' [write_monitor_tables()] into `out_dir/<last day>/`.
+#'
+#' @param folder Folder with the station exports.
+#' @param out_dir Folder for the results; one subfolder per day.
+#' @param time Time of the daily run, `"HH:MM"`. Default `"07:30"`.
+#' @param taskname Name of the scheduled task and of the script. Letters,
+#'   digits, `_` and `-` only. Default `"tidypptsdm_monitor"`.
+#' @param script_dir Folder for the script. Default `out_dir`.
+#' @param format Format of the tables, see [write_monitor_tables()].
+#'   Default `"xlsx"`.
+#' @param register Register the task (Windows) or print the crontab line.
+#'   Default `TRUE`. With `FALSE` only the script is written, e.g. to run
+#'   it by hand with `Rscript`.
+#' @param ... Arguments of [run_monitor()] such as `days`,
+#'   `house_width`, `low_feed_kg` or `station`.
+#' @param verbose 0 (silent) or 1 (summary, default).
+#'
+#' @return Invisibly, the path of the script.
+#' @export
+#' @examples
+#' folder <- file.path(tempdir(), "exports")
+#' dir.create(folder, showWarnings = FALSE)
+#' data.table::fwrite(tidypptsda::nedap, file.path(folder, "nedap.csv"))
+#' out <- file.path(tempdir(), "monitor_runs")
+#' script <- schedule_monitor(folder, out, days = 7, register = FALSE)
+#' cat(readLines(script), sep = "\n")
+#' # run once by hand
+#' source(script)
+#' list.files(out, recursive = TRUE)
+#' unlink(c(folder, out), recursive = TRUE)
+schedule_monitor <- function(folder, out_dir, time = "07:30",
+                             taskname = "tidypptsdm_monitor", script_dir = out_dir,
+                             format = c("xlsx", "csv"), register = TRUE, ...,
+                             verbose = 1) {
+  local_verbose(verbose)
+  format <- match.arg(format)
+  for (arg in c("folder", "out_dir", "script_dir")) {
+    val <- get(arg)
+    if (!is.character(val) || length(val) != 1L || !nzchar(val)) {
+      cli::cli_abort("{.arg {arg}} must be a folder name.")
+    }
+  }
+  if (!dir.exists(folder)) cli::cli_abort("Folder not found: {.path {folder}}.")
+  if (!is.character(time) || length(time) != 1L ||
+      !grepl("^([01][0-9]|2[0-3]):[0-5][0-9]$", time)) {
+    cli::cli_abort("{.arg time} must be a time such as {.val 07:30}.")
+  }
+  if (!is.character(taskname) || length(taskname) != 1L ||
+      !grepl("^[A-Za-z0-9_-]+$", taskname)) {
+    cli::cli_abort("{.arg taskname} may contain only letters, digits, {.val _} and {.val -}.")
+  }
+  args <- list(...)
+  ok_args <- setdiff(names(formals(run_monitor)), c("data", "verbose"))
+  bad <- setdiff(names(args), ok_args)
+  if (length(args) > 0L && (is.null(names(args)) || any(!nzchar(names(args))) || length(bad) > 0L)) {
+    cli::cli_abort(c("{.arg ...} must be named arguments of {.fn run_monitor}.",
+                     "i" = "Allowed: {.arg {ok_args}}."))
+  }
+
+  norm <- function(p) normalizePath(p, winslash = "/", mustWork = FALSE)
+  dir.create(script_dir, recursive = TRUE, showWarnings = FALSE)
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+  script <- file.path(norm(script_dir), paste0(taskname, ".R"))
+  call_args <- vapply(names(args), function(nm) {
+    paste0(nm, " = ", paste(deparse(args[[nm]]), collapse = " "))
+  }, "")
+  run_call <- paste0("mon <- tidypptsdm::run_monitor(",
+                     paste(c(deparse(norm(folder)), call_args), collapse = ", "), ")")
+  lines <- c(
+    paste0("# Written by tidypptsdm::schedule_monitor() on ", format(Sys.time(), "%Y-%m-%d %H:%M")),
+    "# Daily monitor of the testing stations: edit the settings below if needed.",
+    run_call,
+    paste0("out <- file.path(", deparse(norm(out_dir)), ", format(mon$settings$end_date))"),
+    "tidypptsdm::write_monitor_report(mon, out)",
+    paste0("tidypptsdm::write_monitor_tables(mon, out, format = ", deparse(format), ")")
+  )
+  writeLines(lines, script, useBytes = TRUE)
+  pptm_msg("Monitor script written to {.file {script}}", "success")
+
+  if (isTRUE(register)) {
+    if (.Platform$OS.type == "windows") {
+      if (!requireNamespace("taskscheduleR", quietly = TRUE)) {
+        cli::cli_abort(c("Scheduling on Windows needs the {.pkg taskscheduleR} package.",
+                         "i" = "Install it with {.code install.packages(\"taskscheduleR\")}, or schedule {.file {script}} yourself."))
+      }
+      taskscheduleR::taskscheduler_create(taskname = taskname, rscript = script,
+                                          schedule = "DAILY", starttime = time)
+      pptm_msg("Task {.val {taskname}} runs every day at {time}. Remove it with {.code taskscheduleR::taskscheduler_delete(\"{taskname}\")}.", "success")
+    } else {
+      hm <- as.integer(strsplit(time, ":", fixed = TRUE)[[1L]])
+      rscript <- file.path(R.home("bin"), "Rscript")
+      line <- sprintf("%d %d * * * \"%s\" \"%s\" >> \"%s\" 2>&1", hm[2L], hm[1L], rscript, script,
+                      sub("\\.R$", ".log", script))
+      pptm_msg("Add this line with {.code crontab -e} to run the monitor every day at {time}:", "info")
+      if (pptm_verbose() >= 1L) cli::cli_verbatim(line)
+    }
+  }
+  invisible(script)
+}
+```
+
+```{r examples-schedule_monitor}
+folder <- file.path(tempdir(), "exports")
+dir.create(folder, showWarnings = FALSE)
+data.table::fwrite(tidypptsda::nedap, file.path(folder, "nedap.csv"))
+out <- file.path(tempdir(), "monitor_runs")
+script <- schedule_monitor(folder, out, days = 7, register = FALSE)
+cat(readLines(script), sep = "\n")
+unlink(c(folder, out), recursive = TRUE)
+```
+
+```{r tests-schedule_monitor}
+test_that("the scheduled script runs the whole monitor", {
+  folder <- withr::local_tempdir()
+  out <- withr::local_tempdir()
+  data.table::fwrite(tidypptsda::fire, file.path(folder, "fire.csv"))
+  script <- schedule_monitor(folder, out, days = 5, low_feed_kg = 1, format = "csv",
+                             register = FALSE, verbose = 0)
+  txt <- readLines(script)
+  expect_match(paste(txt, collapse = "\n"), "days = 5")
+  expect_match(paste(txt, collapse = "\n"), "low_feed_kg = 1")
+  withr::with_options(list(tidypptsdm.verbose = 0L), {
+    e <- new.env()
+    suppressMessages(sys.source(script, envir = e))
+  })
+  res <- list.files(out, recursive = TRUE)
+  expect_true(any(grepl("index.html$", res)))
+  expect_true(any(grepl("monitor_alerts.csv$", res)))
+  expect_error(schedule_monitor(folder, out, nope = 1, register = FALSE), "run_monitor")
+  expect_error(schedule_monitor(folder, out, time = "25:00", register = FALSE), "time")
+  expect_error(schedule_monitor(file.path(folder, "missing"), out, register = FALSE), "not found")
+  if (.Platform$OS.type != "windows") {
+    expect_message(schedule_monitor(folder, out, register = TRUE), "crontab")
+  }
+})
+```
+
+<!--
+# Inflate your package
+-->
+
+```{r development-inflate, eval=FALSE}
+# Execute in the console directly
+fusen::inflate(flat_file = "dev/flat_tidypptsdm.Rmd",
+               vignette_name = "Get started")
+```

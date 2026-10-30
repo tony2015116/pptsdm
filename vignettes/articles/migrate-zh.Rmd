@@ -1,0 +1,81 @@
+---
+title: "从 pptsdm 迁移"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{从 pptsdm 迁移}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+pptsdm 0.1.4 改名为 tidypptsdm 1.0.0，并在 tidypptsda 的基础上重写，旧函数都不再保留。本文列出新旧函数的对应关系，以及旧版本中已修正的问题。
+
+## 函数对应
+
+| pptsdm 0.1.4 | tidypptsdm 1.0.0 |
+|---|---|
+| `pptsda::import_csv()` + `process_data()` | `read_station()` + `prep_visits()`（来自 tidypptsda）；各函数也可直接传入文件夹或原始数据 |
+| `monitor_all()` | `run_monitor()` + `write_monitor_report()` + `write_monitor_tables()` |
+| `fid_monitor()`（PDF） | `plot_monitor(type = "intake")`，并收入 `write_monitor_report()` |
+| `station_monitor()`（PNG） | `plot_monitor(type = "trend")`、`plot_monitor(type = "weight")`，并收入 `write_monitor_report()` |
+| `table_monitor()`（Excel） | `write_monitor_tables()` |
+| `monitor_schedule()` | `schedule_monitor()` |
+| `responder_na()` | `monitor_stations()` 的 `n_unidentified`、`pct_unidentified` |
+| `extreme_time_n()` | `monitor_stations()` 的 `pct_weight_outlier`、`n_visits`、`occupation_h` |
+| `all_feedintake()` | `monitor_stations()` 的 `feed_kg` |
+| `number_location()` | `monitor_houses()` 的 `n_pigs` |
+| `house_feedintake()`、`merge_data()` | `monitor_houses()` 的 `feed_kg`、`feed_per_pig_kg` |
+| `house_weight()` | `monitor_houses()` 的 `weight_kg` |
+| `low_feedintake()` | `monitor_pigs()` 的 `status`，以及 `run_monitor()` 的 `pig_summary` 和警报 |
+| `hour_stat()` | `monitor_hours()` |
+| 宽表输出 | `wide_table()` |
+
+## 参数
+
+| 旧参数 | 新参数 |
+|---|---|
+| `days`（实际包含 `days + 1` 天） | `days`：恰好 `days` 天 |
+| `ref_date = Sys.Date()` | `end_date`：默认为数据最后一天，若为今天则取昨天 |
+| `begin_date` | 用 `days` 和 `end_date` 定窗口 |
+| `house_width = "1"`（字符） | `house_width = 1`（整数） |
+| `station_type` | `station`：默认自动识别 |
+| `save_path` | 各写出函数的 `path` |
+| 写死的 0.5 kg、1.5 × IQR | `low_feed_kg`、`iqr_k`；新增 `max_unidentified_pct`、`max_feed_drop_pct` |
+
+## 一个例子
+
+旧写法：
+
+```r
+csv_files <- list.files("D:/nedap/exports", full.names = TRUE, pattern = ".csv", recursive = TRUE)
+csv_data <- pptsda::import_csv(csv_files, package = "data.table")
+monitor_all(csv_data, begin_date = "2024-05-01", days = 5, save_path = "D:/nedap/monitor")
+```
+
+新写法：
+
+```r
+mon <- run_monitor("D:/nedap/exports", days = 5)
+write_monitor_report(mon, "D:/nedap/monitor")
+write_monitor_tables(mon, "D:/nedap/monitor")
+```
+
+## 已修正的问题
+
+- **窗口天数**：旧版 `date >= ref_date - days` 实际取了 `days + 1` 天，而且 `house_weight()`、`responder_na()` 不含 `ref_date` 当天，同一个工作簿里各表的日期不一致。现在所有表都是截至 `end_date` 的 `days` 天。
+- **漏掉不吃料的猪**：`low_feedintake()` 只列出采食量低于 0.5 kg 的猪，当天完全没有访问的猪不出现。现在这样的猪是 `no_visit`，并给出 danger 警报。
+- **停机的测定站**：旧版没有访问的日子在表中不存在。现在计数为 0，并给出 `station_down` 警报。
+- **时长单位**：NEDAP 的 `duration` 是秒，旧版有的表除以 3600（小时），有的除以 60 却当成小时。现在列名写明单位：`occupation_h`、`occupation_min`。
+- **体重单位**：NEDAP 的体重是 g，由 `prep_visits()` 统一换算成 kg，体重为 0 视为未称重。
+- **Excel 色阶**：旧版色阶多覆盖一列，`feed_time_n` 工作表的色阶规则匹配不到任何列。
+- **`station_monitor()`**：所有 PNG 都用第一台测定站的尺寸；日期轴每天一个刻度但只显示月份。
+- **`fid_monitor()`**：一台测定站的猪多于 41 头（调色板颜色数）时报错。现在用热图，猪多少都可以。
+- **修改输入数据**：`hour_stat()`、`fid_monitor()`、`station_monitor()` 会原地修改传入的数据；现在所有函数都在副本上计算。
+- **`process_data()`**：被调用 4 次，结果有一次没有用到；现在 `run_monitor()` 只预处理一次。
+- **`merge_data()`**：用一张表的逻辑向量去索引另一张表的列名，能得到正确结果纯属巧合；并且定义了两遍。
+- **定时任务**：`monitor_schedule()` 只能在 Windows 上用，脚本目录写死为 `C:/Temp`，文件名随机。现在脚本位置可指定、名称固定，Linux 和 macOS 打印 crontab 配置。
+- **依赖**：不再需要 cowplot、lubridate、patchwork、pptsda、purrr、scales、tidyr；openxlsx 和 taskscheduleR 改为可选。
+- **示例**：旧示例都写死了 `C:/Users/Dell/...` 路径；现在使用 tidypptsda 自带的 `nedap`、`fire` 示例数据，到处都能运行。

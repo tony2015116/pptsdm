@@ -1,10 +1,8 @@
 .Rproj.user
-inst/doc
 .Rhistory
+.RData
 .Rdata
 .httr-oauth
 .DS_Store
-_pkgdown.yml
-#docs/
-
-.quarto
+inst/doc
+docs

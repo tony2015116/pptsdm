@@ -3,10 +3,18 @@ path.d: DESCRIPTION
 dir.r: R
 dir.v: vignettes
 dir.t: tests
-extra.suggests: ~
-pkg_ignore: ~
+extra.suggests:
+- openxlsx
+- taskscheduleR
+- withr
+- testthat
+- knitr
+- rmarkdown
+pkg_ignore:
+- openxlsx
+- taskscheduleR
 document: yes
 normalize: yes
 inside_rmd: no
 must.exist: yes
-check_if_suggests_is_installed: yes
+check_if_suggests_is_installed: no

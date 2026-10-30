@@ -1,0 +1,136 @@
+---
+title: "结果说明"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{结果说明}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 9,
+                      fig.height = 6, out.width = "100%")
+```
+
+```{r setup, message = FALSE}
+library(tidypptsdm)
+mon <- run_monitor(tidypptsda::fire, days = 7, verbose = 0)
+```
+
+所有日表都有一个共同点：**窗口内每个单位每天都有一行，没有访问的日子也在**，计数为 0、其他列为 `NA`。停机的测定站、不吃料的猪因此不会从表中"消失"。
+
+列名的后缀就是单位：`_kg` 千克、`_h` 小时、`_min` 分钟、`pct_` 百分比、`n_` 计数。
+
+## 测定站：`stations`
+
+```{r}
+head(mon$stations)
+```
+
+| 列 | 含义 |
+|---|---|
+| `location`、`date` | 测定站、日期 |
+| `n_pigs` | 当天有识别访问的猪数 |
+| `n_visits` | 全部访问次数（含未识别） |
+| `n_unidentified`、`pct_unidentified` | 未读到耳标的访问次数及其百分比 |
+| `occupation_h` | 测定站被占用的总时间，小时 |
+| `feed_kg` | 全部访问的采食量，kg |
+| `feed_per_pig_kg` | 识别访问的采食量 ÷ `n_pigs` |
+| `weight_kg` | 每头猪当天体重中位数（去掉异常值）的平均 |
+| `pct_weight_outlier` | 体重异常值的百分比：同一头猪同一天的体重，超出四分位数 ± `iqr_k` × 四分位距（Tukey fences）的记录；少于 4 次称重时不判异常 |
+
+列出的测定站是窗口内或窗口前 14 天内有访问的测定站：停止记录的测定站会显示两周（并报警），早已撤出测定的则不再列出。
+
+## 栋：`houses`
+
+栋由测定站编号的前 `house_width` 个字符决定，例如 `house_width = 1` 时测定站 `203` 属于栋 `2`。
+
+```{r}
+head(mon$houses)
+```
+
+`n_stations` 是该栋的测定站数，其余列与 `stations` 相同。
+
+## 猪：`pigs` 和 `pig_summary`
+
+`pigs` 每头猪每天一行，从这头猪第一次出现（或窗口开始）到窗口最后一天：
+
+```{r}
+head(mon$pigs)
+```
+
+| 列 | 含义 |
+|---|---|
+| `location` | 窗口内这头猪访问最多的测定站 |
+| `n_visits`、`feed_kg`、`occupation_min` | 当天的访问次数、采食量、占用时间（分钟） |
+| `weight_kg` | 当天体重的中位数 |
+| `status` | `no_visit`（无访问）、`low_feed`（采食量 < `low_feed_kg`）或 `ok` |
+
+`pig_summary` 每头猪一行：
+
+```{r}
+head(mon$pig_summary)
+```
+
+| 列 | 含义 |
+|---|---|
+| `days` | 窗口内的天数（从第一次出现算起） |
+| `no_visit_days`、`low_feed_days` | 无访问、低采食的天数 |
+| `mean_feed_kg` | 平均日采食量，无访问的日子按 0 计 |
+| `last_feed_kg`、`last_visits` | 最后一天的采食量、访问次数 |
+| `last_weight_kg` | 最近一次的日体重中位数 |
+| `days_since_visit` | 距上次访问的天数 |
+| `status` | 最后一天的状态 |
+
+## 每小时：`hours`
+
+最后一天（或 `monitor_hours(date = )` 指定的一天）每台测定站 0–23 时每小时一行：`n_pigs`、`n_visits`、`occupation_min`、`feed_kg`。小时按进站时间计。
+
+## 警报：`alerts`
+
+```{r}
+mon$alerts
+```
+
+| 列 | 含义 |
+|---|---|
+| `level` | `danger` 或 `warning`，danger 排在前面 |
+| `type` | `station_down`、`unidentified`、`feed_drop`、`pig_no_visit`、`pig_low_feed` |
+| `location`、`responder` | 测定站；猪只警报还有耳标号 |
+| `value` | 触发的数值：未识别百分比、采食量 kg、无访问天数 |
+| `message` | 说明 |
+
+阈值都是 `run_monitor()` 的参数：`low_feed_kg`、`max_unidentified_pct`、`max_feed_drop_pct`、`iqr_k`。
+
+## 图
+
+| `plot_monitor(type = )` | 内容 |
+|---|---|
+| `"trend"` | 猪数、访问次数、未识别 %、占用时间、采食量、头均采食量的逐日变化；无访问的日子标红 |
+| `"intake"` | 每头猪每天采食量的热图；× 表示无访问，○ 表示低采食；窗口不超过 21 天时格子里写数值 |
+| `"weight"` | 每天全部体重记录的箱线图，红点在须线以外 |
+| `"hours"` | 最后一天每小时的访问次数、占用时间、采食量 |
+
+```{r, fig.height = 7}
+plot_monitor(mon, "intake", locations = "102")$plot[[1]]
+```
+
+## Excel 工作簿 {#excel}
+
+`write_monitor_tables(mon, path)` 写出 `monitor.xlsx`（需要 openxlsx 包）。长表原样写出，宽表（见 `wide_table()`）加三色色阶：红色表示可能有问题。
+
+| 工作表 | 内容 | 红色表示 |
+|---|---|---|
+| `Alerts` | 警报 | |
+| `Stations`、`Houses`、`Pigs`、`Pig days` | 长表（`Pigs` 是 `pig_summary`，`Pig days` 是 `pigs`） | |
+| `Visits` | 每站每天访问次数 | 偏低 |
+| `Unidentified pct` | 未识别访问 % | 偏高 |
+| `Feed kg`、`Feed per pig kg` | 采食量、头均采食量 | 偏低 |
+| `Occupation h` | 占用时间 | 偏低 |
+| `Weight outliers pct` | 体重异常值 % | 偏高 |
+| `House feed per pig kg` | 每栋头均采食量 | 偏低 |
+| `House weight kg` | 每栋平均体重 | （蓝色色阶） |
+| `Pig feed kg` | 每头猪每天采食量 | 偏低 |
+| `Hours visits`、`Hours feed kg` | 最后一天每小时 | （蓝色色阶） |
+
+`format = "csv"` 则写出 6 个 CSV 文件（`monitor_alerts.csv` 等），带 BOM，Excel 直接打开不会乱码。
