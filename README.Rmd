@@ -51,6 +51,12 @@ Documentation (in Chinese):
 pak::pak("tony2015116/tidypptsdm")
 ```
 
+Version 0.1.4 (pptsdm, the earlier API) stays available:
+
+``` r
+pak::pak("tony2015116/pptsdm@v0.1.4")
+```
+
 ## Example
 
 ```{r example}

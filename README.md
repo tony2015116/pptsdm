@@ -41,6 +41,12 @@ Documentation (in Chinese):
 pak::pak("tony2015116/tidypptsdm")
 ```
 
+Version 0.1.4 (pptsdm, the earlier API) stays available:
+
+``` r
+pak::pak("tony2015116/pptsdm@v0.1.4")
+```
+
 ## Example
 
 ``` r
@@ -54,7 +60,7 @@ mon <- run_monitor(tidypptsda::nedap, days = 7)
 #>   └ unidentified (kept, identified = FALSE)     211    0.7%
 #>   └ body weight 0 (set to NA)                   391    1.2%
 #> ℹ No pig was seen at more than one station
-#> ✔ 30 pigs at 2 stations, 31,863 visits over 97 days 0.3s
+#> ✔ 30 pigs at 2 stations, 31,863 visits over 97 days 0.2s
 #> ℹ No breed column. To use breed in the feed intake model and breed-specific limits, add it with `add_breed()`.
 #> 
 #> ── Monitoring NEDAP stations: 2024-05-19 to 2024-05-25 (7 days) ────────────────

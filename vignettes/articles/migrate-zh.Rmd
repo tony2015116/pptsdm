@@ -13,6 +13,12 @@ knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
 
 pptsdm 0.1.4 改名为 tidypptsdm 1.0.0，并在 tidypptsda 的基础上重写，旧函数都不再保留。本文列出新旧函数的对应关系，以及旧版本中已修正的问题。
 
+旧版本保留在 GitHub 上，需要旧接口时可以安装：
+
+```r
+pak::pak("tony2015116/pptsdm@v0.1.4")
+```
+
 ## 函数对应
 
 | pptsdm 0.1.4 | tidypptsdm 1.0.0 |

@@ -35,6 +35,7 @@ old functions remain; see the article "从 pptsdm 迁移" for the mapping.
 * Dependencies: cli, data.table, ggplot2 and tidypptsda. cowplot,
   lubridate, patchwork, pptsda, purrr, scales and tidyr are no longer
   needed; openxlsx and taskscheduleR are optional.
+* The logo and favicons of pptsdm are kept.
 * Examples use the `nedap` and `fire` datasets of tidypptsda and run
   everywhere; the package has tests.
 
