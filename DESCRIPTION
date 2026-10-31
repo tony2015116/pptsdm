@@ -1,6 +1,6 @@
 Package: tidypptsdm
 Title: Daily Monitoring of Pig Performance Testing Stations
-Version: 1.1.0
+Version: 1.1.1
 Authors@R:
     person("Meng", "Guo", , "tony2015116@163.com", role = c("aut", "cre", "cph"))
 Description: Daily monitoring of automatic pig feeding stations (NEDAP and

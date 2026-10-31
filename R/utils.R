@@ -10,8 +10,8 @@
 utils::globalVariables(c(
   ".", ".N", ".SD", "date", "duration", "entry_time", "feed_intake",
   "feed_identified_kg", "feed_kg", "feed_per_pig_kg", "first_date", "hour",
-  "house", "i.pct_weight_outlier", "i.weight_kg", "identified", "lab",
-  "lab_col", "last_weight_kg", "level", "location", "low_feed_days",
+  "house", "i.pct_weight_outlier", "i.weight_kg", "identified",
+  "last_weight_kg", "level", "location", "low_feed_days",
   "mean_feed", "metric", "n_pigs", "n_stations", "n_unidentified",
   "n_visits", "occupation_h", "occupation_min", "outlier",
   "pct_unidentified", "pct_weight_outlier", "pig", "pig_w", "responder",

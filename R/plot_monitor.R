@@ -3,8 +3,8 @@
 #' Plot the Monitor, One Plot per Station
 #'
 #' @param x Result of [run_monitor()].
-#' @param type `"trend"` (default), `"intake"`, `"heatmap"`, `"weight"`
-#'   or `"hours"`. See Details.
+#' @param type `"trend"` (default), `"intake"`, `"weight"` or `"hours"`.
+#'   See Details.
 #' @param locations Stations to plot. Default `NULL`: all.
 #'
 #' @details
@@ -18,9 +18,6 @@
 #'   intake (kg), with the daily total above the bar (windows of up to 31
 #'   days). In the legend, pigs without visit on the last day are marked
 #'   `[no visit]` and pigs below `low_feed_kg` `[low feed]`.
-#' - `"heatmap"`: feed intake (kg) of each pig on each day as a heat map. A
-#'   cross marks a day without visit, a circle a day below `low_feed_kg`.
-#'   With a window of at most 21 days the values are printed in the cells.
 #' - `"weight"`: box plots of the recorded body weights of each day.
 #' - `"hours"`: visits, occupation time and feed intake per hour of the
 #'   last day.
@@ -35,17 +32,15 @@
 #' p <- plot_monitor(mon, "intake")
 #' p$plot[[1]]
 #' plot_monitor(mon, "trend", locations = "102")$plot[[1]]
-#' plot_monitor(mon, "heatmap", locations = "101")$plot[[1]]
 #' mon <- run_monitor(tidypptsda::nedap, verbose = 0)
 #' plot_monitor(mon, "intake")$plot[[1]]
-plot_monitor <- function(x, type = c("trend", "intake", "heatmap", "weight", "hours"),
+plot_monitor <- function(x, type = c("trend", "intake", "weight", "hours"),
                          locations = NULL) {
   check_monitor(x)
   type <- match.arg(type)
   locs <- pick_locations(x, locations)
   one <- switch(type, trend = plot_trend_one, intake = plot_intake_one,
-                heatmap = plot_heatmap_one, weight = plot_weight_one,
-                hours = plot_hours_one)
+                weight = plot_weight_one, hours = plot_hours_one)
   res <- lapply(locs, function(l) one(x, l))
   data.table::data.table(
     location = locs, type = type,
@@ -209,47 +204,11 @@ plot_intake_one <- function(x, l) {
                    strip.text.y.left = ggplot2::element_text(angle = 90),
                    strip.background = ggplot2::element_blank(),
                    panel.grid.major.x = ggplot2::element_blank())
-  list(plot = p, width = plot_width(s$days) + 4 * ncol + 2,
+  # legend width from the longest label, so that long tag numbers
+  # (e.g. 15-digit electronic ear tags) do not squeeze the bars
+  leg_w <- 0.2 * max(nchar(labels)) + 1.4
+  list(plot = p, width = plot_width(s$days) + leg_w * ncol + 1,
        height = max(18, 0.45 * length(lv) / ncol + 6))
-}
-
-plot_heatmap_one <- function(x, l) {
-  s <- x$settings
-  d <- x$pigs[location == l]
-  title <- paste("Station", l, "- feed intake per pig")
-  if (nrow(d) == 0L) {
-    return(list(plot = empty_plot(title, "No identified pig in the window"),
-                width = 16, height = 6))
-  }
-  lv <- rev(natural_order(d$responder))
-  d[, pig := factor(responder, levels = lv)]
-  top <- max(d$feed_kg, na.rm = TRUE)
-  p <- ggplot2::ggplot(d, ggplot2::aes(date, pig)) +
-    ggplot2::geom_tile(ggplot2::aes(fill = feed_kg), colour = "white", linewidth = 0.5) +
-    ggplot2::scale_fill_gradient(low = "#EEF4FB", high = "#0F4C8A", name = "Feed (kg)",
-                                 limits = c(0, max(top, 0.1)))
-  if (s$days <= 21L) {
-    d[, lab := data.table::fifelse(n_visits > 0L, formatC(feed_kg, format = "f", digits = 1), "")]
-    d[, lab_col := data.table::fifelse(feed_kg > 0.55 * top, "white", "#1D2330")]
-    p <- p + ggplot2::geom_text(data = d, ggplot2::aes(label = lab, colour = lab_col), size = 2.5) +
-      ggplot2::scale_colour_identity()
-  }
-  nv <- d[status == "no_visit"]
-  lf <- d[status == "low_feed"]
-  if (nrow(nv) > 0L) {
-    p <- p + ggplot2::geom_point(data = nv, shape = 4, colour = "#B42318", size = 3, stroke = 1.2)
-  }
-  if (nrow(lf) > 0L) {
-    p <- p + ggplot2::geom_point(data = lf, shape = 21, fill = NA, colour = "#D97706",
-                                 size = 5.5, stroke = 1)
-  }
-  p <- p + date_scale(s) +
-    ggplot2::labs(x = NULL, y = NULL, title = title,
-                  subtitle = paste0("x: no visit; o: below ", format(s$low_feed_kg), " kg")) +
-    pptm_theme() +
-    ggplot2::theme(panel.grid = ggplot2::element_blank(), legend.position = "right")
-  list(plot = p, width = plot_width(s$days) + 3,
-       height = max(8, 0.6 * length(lv) + 4))
 }
 
 plot_weight_one <- function(x, l) {

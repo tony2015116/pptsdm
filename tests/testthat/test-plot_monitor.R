@@ -2,7 +2,7 @@
 
 test_that("plots for every type", {
   mon <- run_monitor(tidypptsda::nedap, days = 5, verbose = 0)
-  for (tp in c("trend", "intake", "heatmap", "weight", "hours")) {
+  for (tp in c("trend", "intake", "weight", "hours")) {
     p <- plot_monitor(mon, tp)
     expect_equal(p$location, c("101", "102"))
     expect_true(all(vapply(p$plot, ggplot2::is.ggplot, logical(1))))
@@ -20,6 +20,13 @@ test_that("plots for every type", {
   b <- ggplot2::ggplot_build(g)
   expect_true(any(grepl("\\[no visit\\]", b$plot$scales$get_scales("fill")$get_labels())))
   expect_true("Weight (kg)" %in% levels(plot_monitor(mon2, "trend", "101")$plot[[1]]$data$metric))
+  # long tag numbers widen the intake plot instead of squeezing the bars
+  v_long <- data.table::copy(v)
+  v_long[!is.na(responder), responder := sprintf("9980260421%05d", as.integer(responder))]
+  mon_long <- run_monitor(v_long, days = 5, verbose = 0)
+  expect_gt(plot_monitor(mon_long, "intake", "101")$width,
+            plot_monitor(run_monitor(v, days = 5, verbose = 0), "intake", "101")$width)
+  expect_error(plot_monitor(mon, "heatmap"), "should be one of")
   expect_error(plot_monitor(mon, "trend", locations = "999"), "Unknown station")
   expect_error(plot_monitor(list()), "run_monitor")
 })

@@ -98,8 +98,8 @@ Small internal tools shared by every function of the package:
 utils::globalVariables(c(
   ".", ".N", ".SD", "date", "duration", "entry_time", "feed_intake",
   "feed_identified_kg", "feed_kg", "feed_per_pig_kg", "first_date", "hour",
-  "house", "i.pct_weight_outlier", "i.weight_kg", "identified", "lab",
-  "lab_col", "last_weight_kg", "level", "location", "low_feed_days",
+  "house", "i.pct_weight_outlier", "i.weight_kg", "identified",
+  "last_weight_kg", "level", "location", "low_feed_days",
   "mean_feed", "metric", "n_pigs", "n_stations", "n_unidentified",
   "n_visits", "occupation_h", "occupation_min", "outlier",
   "pct_unidentified", "pct_weight_outlier", "pig", "pig_w", "responder",
@@ -1168,8 +1168,6 @@ test_that("wide tables", {
   share of the station's feed (top) and kg (bottom), as `fid_monitor()`
   of pptsdm drew them; pigs that did not visit or ate too little on the
   last day are marked in the legend;
-- `"heatmap"`: feed intake of every pig on every day as a heat map, with a
-  cross for a day without visit and a circle for a low-feed day;
 - `"weight"`: recorded body weights per day as box plots;
 - `"hours"`: visits, occupation time and feed intake per hour of the last
   day.
@@ -1178,8 +1176,8 @@ test_that("wide tables", {
 #' Plot the Monitor, One Plot per Station
 #'
 #' @param x Result of [run_monitor()].
-#' @param type `"trend"` (default), `"intake"`, `"heatmap"`, `"weight"`
-#'   or `"hours"`. See Details.
+#' @param type `"trend"` (default), `"intake"`, `"weight"` or `"hours"`.
+#'   See Details.
 #' @param locations Stations to plot. Default `NULL`: all.
 #'
 #' @details
@@ -1193,9 +1191,6 @@ test_that("wide tables", {
 #'   intake (kg), with the daily total above the bar (windows of up to 31
 #'   days). In the legend, pigs without visit on the last day are marked
 #'   `[no visit]` and pigs below `low_feed_kg` `[low feed]`.
-#' - `"heatmap"`: feed intake (kg) of each pig on each day as a heat map. A
-#'   cross marks a day without visit, a circle a day below `low_feed_kg`.
-#'   With a window of at most 21 days the values are printed in the cells.
 #' - `"weight"`: box plots of the recorded body weights of each day.
 #' - `"hours"`: visits, occupation time and feed intake per hour of the
 #'   last day.
@@ -1210,15 +1205,13 @@ test_that("wide tables", {
 #' p <- plot_monitor(mon, "intake")
 #' p$plot[[1]]
 #' plot_monitor(mon, "trend", locations = "102")$plot[[1]]
-#' plot_monitor(mon, "heatmap", locations = "101")$plot[[1]]
-plot_monitor <- function(x, type = c("trend", "intake", "heatmap", "weight", "hours"),
+plot_monitor <- function(x, type = c("trend", "intake", "weight", "hours"),
                          locations = NULL) {
   check_monitor(x)
   type <- match.arg(type)
   locs <- pick_locations(x, locations)
   one <- switch(type, trend = plot_trend_one, intake = plot_intake_one,
-                heatmap = plot_heatmap_one, weight = plot_weight_one,
-                hours = plot_hours_one)
+                weight = plot_weight_one, hours = plot_hours_one)
   res <- lapply(locs, function(l) one(x, l))
   data.table::data.table(
     location = locs, type = type,
@@ -1382,47 +1375,11 @@ plot_intake_one <- function(x, l) {
                    strip.text.y.left = ggplot2::element_text(angle = 90),
                    strip.background = ggplot2::element_blank(),
                    panel.grid.major.x = ggplot2::element_blank())
-  list(plot = p, width = plot_width(s$days) + 4 * ncol + 2,
+  # legend width from the longest label, so that long tag numbers
+  # (e.g. 15-digit electronic ear tags) do not squeeze the bars
+  leg_w <- 0.2 * max(nchar(labels)) + 1.4
+  list(plot = p, width = plot_width(s$days) + leg_w * ncol + 1,
        height = max(18, 0.45 * length(lv) / ncol + 6))
-}
-
-plot_heatmap_one <- function(x, l) {
-  s <- x$settings
-  d <- x$pigs[location == l]
-  title <- paste("Station", l, "- feed intake per pig")
-  if (nrow(d) == 0L) {
-    return(list(plot = empty_plot(title, "No identified pig in the window"),
-                width = 16, height = 6))
-  }
-  lv <- rev(natural_order(d$responder))
-  d[, pig := factor(responder, levels = lv)]
-  top <- max(d$feed_kg, na.rm = TRUE)
-  p <- ggplot2::ggplot(d, ggplot2::aes(date, pig)) +
-    ggplot2::geom_tile(ggplot2::aes(fill = feed_kg), colour = "white", linewidth = 0.5) +
-    ggplot2::scale_fill_gradient(low = "#EEF4FB", high = "#0F4C8A", name = "Feed (kg)",
-                                 limits = c(0, max(top, 0.1)))
-  if (s$days <= 21L) {
-    d[, lab := data.table::fifelse(n_visits > 0L, formatC(feed_kg, format = "f", digits = 1), "")]
-    d[, lab_col := data.table::fifelse(feed_kg > 0.55 * top, "white", "#1D2330")]
-    p <- p + ggplot2::geom_text(data = d, ggplot2::aes(label = lab, colour = lab_col), size = 2.5) +
-      ggplot2::scale_colour_identity()
-  }
-  nv <- d[status == "no_visit"]
-  lf <- d[status == "low_feed"]
-  if (nrow(nv) > 0L) {
-    p <- p + ggplot2::geom_point(data = nv, shape = 4, colour = "#B42318", size = 3, stroke = 1.2)
-  }
-  if (nrow(lf) > 0L) {
-    p <- p + ggplot2::geom_point(data = lf, shape = 21, fill = NA, colour = "#D97706",
-                                 size = 5.5, stroke = 1)
-  }
-  p <- p + date_scale(s) +
-    ggplot2::labs(x = NULL, y = NULL, title = title,
-                  subtitle = paste0("x: no visit; o: below ", format(s$low_feed_kg), " kg")) +
-    pptm_theme() +
-    ggplot2::theme(panel.grid = ggplot2::element_blank(), legend.position = "right")
-  list(plot = p, width = plot_width(s$days) + 3,
-       height = max(8, 0.6 * length(lv) + 4))
 }
 
 plot_weight_one <- function(x, l) {
@@ -1478,7 +1435,7 @@ plot_monitor(mon, "intake")$plot[[1]]
 ```{r tests-plot_monitor}
 test_that("plots for every type", {
   mon <- run_monitor(tidypptsda::nedap, days = 5, verbose = 0)
-  for (tp in c("trend", "intake", "heatmap", "weight", "hours")) {
+  for (tp in c("trend", "intake", "weight", "hours")) {
     p <- plot_monitor(mon, tp)
     expect_equal(p$location, c("101", "102"))
     expect_true(all(vapply(p$plot, ggplot2::is.ggplot, logical(1))))
@@ -1496,6 +1453,13 @@ test_that("plots for every type", {
   b <- ggplot2::ggplot_build(g)
   expect_true(any(grepl("\\[no visit\\]", b$plot$scales$get_scales("fill")$get_labels())))
   expect_true("Weight (kg)" %in% levels(plot_monitor(mon2, "trend", "101")$plot[[1]]$data$metric))
+  # long tag numbers widen the intake plot instead of squeezing the bars
+  v_long <- data.table::copy(v)
+  v_long[!is.na(responder), responder := sprintf("9980260421%05d", as.integer(responder))]
+  mon_long <- run_monitor(v_long, days = 5, verbose = 0)
+  expect_gt(plot_monitor(mon_long, "intake", "101")$width,
+            plot_monitor(run_monitor(v, days = 5, verbose = 0), "intake", "101")$width)
+  expect_error(plot_monitor(mon, "heatmap"), "should be one of")
   expect_error(plot_monitor(mon, "trend", locations = "999"), "Unknown station")
   expect_error(plot_monitor(list()), "run_monitor")
 })

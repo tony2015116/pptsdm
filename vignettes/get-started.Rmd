@@ -162,8 +162,6 @@ wide_table(mon$pigs, "feed_kg")
   share of the station's feed (top) and kg (bottom), as `fid_monitor()`
   of pptsdm drew them; pigs that did not visit or ate too little on the
   last day are marked in the legend;
-- `"heatmap"`: feed intake of every pig on every day as a heat map, with a
-  cross for a day without visit and a circle for a low-feed day;
 - `"weight"`: recorded body weights per day as box plots;
 - `"hours"`: visits, occupation time and feed intake per hour of the last
   day.

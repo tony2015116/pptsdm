@@ -1,3 +1,11 @@
+# tidypptsdm 1.1.1
+
+* The heat map (`plot_monitor(type = "heatmap")`) is removed: with many
+  days it is hard to read. The stacked-bar intake plot and the pig table
+  show the feed intake of each pig.
+* The intake plot is as wide as its legend needs, so long tag numbers
+  (e.g. 15-digit electronic ear tags) no longer squeeze the bars.
+
 # tidypptsdm 1.1.0
 
 * `plot_monitor(type = "intake")` draws stacked bars as `fid_monitor()` of
@@ -6,7 +14,7 @@
   One colour per pig in both panels and one legend; the number of colours
   grows with the number of pigs. Pigs without visit or with low feed
   intake on the last day are marked in the legend. The heat map of 1.0.0
-  is now `type = "heatmap"` and is no longer in the HTML report.
+  is no longer in the HTML report.
 * `plot_monitor(type = "trend")` has a body weight panel: the mean of the
   pigs' daily median weight, with a band from the lightest to the
   heaviest pig.
