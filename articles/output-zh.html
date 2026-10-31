@@ -36,7 +36,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">tidypptsdm</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.0.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.1.0</span>
       </span>
     </div>
 
@@ -430,18 +430,25 @@
 <tr class="odd">
 <td><code>"trend"</code></td>
 <td>猪数、访问次数、未识别
-%、占用时间、采食量、头均采食量的逐日变化；无访问的日子标红</td>
+%、占用时间、采食量、头均采食量和体重的逐日变化。体重线是各猪当天体重中位数的平均，灰色带是当天最轻到最重的猪；无访问的日子标红</td>
 </tr>
 <tr class="even">
 <td><code>"intake"</code></td>
-<td>每头猪每天采食量的热图；× 表示无访问，○ 表示低采食；窗口不超过 21
-天时格子里写数值</td>
+<td>堆叠柱状图，每头猪一种颜色：上图为每头猪占测定站当天总采食量的比例（%），下图为采食量（kg），柱顶标出当天总量（窗口不超过
+31 天时）。最后一天没有访问或采食量偏低的猪，在图例中标
+<code>[no visit]</code>、<code>[low feed]</code>
+</td>
 </tr>
 <tr class="odd">
+<td><code>"heatmap"</code></td>
+<td>每头猪每天采食量的热图；× 表示无访问，○ 表示低采食；窗口不超过 21
+天时格子里写数值。报告中不包含此图</td>
+</tr>
+<tr class="even">
 <td><code>"weight"</code></td>
 <td>每天全部体重记录的箱线图，红点在须线以外</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>"hours"</code></td>
 <td>最后一天每小时的访问次数、占用时间、采食量</td>
 </tr>
@@ -450,6 +457,9 @@
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_monitor.html">plot_monitor</a></span><span class="op">(</span><span class="va">mon</span>, <span class="st">"intake"</span>, locations <span class="op">=</span> <span class="st">"102"</span><span class="op">)</span><span class="op">$</span><span class="va">plot</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span></span></code></pre></div>
 <p><img src="output-zh_files/figure-html/unnamed-chunk-7-1.png" class="r-plt" alt="" width="100%"></p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_monitor.html">plot_monitor</a></span><span class="op">(</span><span class="va">mon</span>, <span class="st">"trend"</span>, locations <span class="op">=</span> <span class="st">"102"</span><span class="op">)</span><span class="op">$</span><span class="va">plot</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span></span></code></pre></div>
+<p><img src="output-zh_files/figure-html/unnamed-chunk-7-2.png" class="r-plt" alt="" width="100%"></p>
 </div>
 <div class="section level2">
 <h2 id="excel">Excel 工作簿<a class="anchor" aria-label="anchor" href="#excel"></a>

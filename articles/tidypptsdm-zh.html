@@ -36,7 +36,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">tidypptsdm</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.0.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.1.0</span>
       </span>
     </div>
 
@@ -380,15 +380,20 @@ tidypptsda 的<a href="https://tony2015116.github.io/tidypptsda/articles/data-zh
 <div class="section level2">
 <h2 id="作图">6. 作图<a class="anchor" aria-label="anchor" href="#%E4%BD%9C%E5%9B%BE"></a>
 </h2>
-<p>每台测定站一张图，共四种：</p>
+<p>每台测定站一张图。趋势图包含测定站每天的体重变化：线是平均体重，灰色带是最轻到最重的猪。</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">p</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/plot_monitor.html">plot_monitor</a></span><span class="op">(</span><span class="va">mon2</span>, <span class="st">"trend"</span>, locations <span class="op">=</span> <span class="st">"102"</span><span class="op">)</span></span>
 <span><span class="va">p</span><span class="op">$</span><span class="va">plot</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span></span></code></pre></div>
 <p><img src="tidypptsdm-zh_files/figure-html/unnamed-chunk-7-1.png" class="r-plt" alt="" width="100%"></p>
+<p>采食图沿用 pptsdm
+的样式：上图是每头猪占测定站当天总采食量的比例，下图是采食量，柱顶是当天总量。上面去掉了一头猪最后两天的记录，所以它在最后两天的柱子里消失，图例里标出
+<code>[no visit]</code>。</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/plot_monitor.html">plot_monitor</a></span><span class="op">(</span><span class="va">mon2</span>, <span class="st">"intake"</span>, locations <span class="op">=</span> <span class="st">"101"</span><span class="op">)</span><span class="op">$</span><span class="va">plot</span><span class="op">[[</span><span class="fl">1</span><span class="op">]</span><span class="op">]</span></span></code></pre></div>
 <p><img src="tidypptsdm-zh_files/figure-html/unnamed-chunk-8-1.png" class="r-plt" alt="" width="100%"></p>
-<p><code>"weight"</code> 是每天体重的箱线图，<code>"hours"</code>
+<p><code>"heatmap"</code>
+是采食量热图（以前的样式，天数不多时适合查看），<code>"weight"</code>
+是每天体重的箱线图，<code>"hours"</code>
 是最后一天每小时的访问、占用时间和采食量。<code><a href="../reference/save_monitor_plots.html">save_monitor_plots()</a></code>
 按合适的尺寸保存成 PNG 或 PDF。</p>
 </div>
@@ -400,7 +405,7 @@ tidypptsda 的<a href="https://tony2015116.github.io/tidypptsda/articles/data-zh
 <span><span class="fu"><a href="../reference/write_monitor_report.html">write_monitor_report</a></span><span class="op">(</span><span class="va">mon</span>, <span class="va">out</span>, open <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/write_monitor_tables.html">write_monitor_tables</a></span><span class="op">(</span><span class="va">mon</span>, <span class="va">out</span><span class="op">)</span></span></code></pre></div>
 <p>HTML
-报告第一页是总览：最后一天的测定站数、猪数、访问次数、采食量、警报，以及所有测定站和栋的表格；后面每台测定站一页：警报、趋势图、采食热图、猪只表、体重和分小时图。方向键翻页，搜索框输入耳标号跳到该猪所在的测定站。文件夹可以整体拷贝或压缩，离线打开。</p>
+报告第一页是总览：最后一天的测定站数、猪数、访问次数、采食量、警报，以及所有测定站和栋的表格；后面每台测定站一页：警报、趋势图（含体重）、采食量堆叠柱状图、猪只表、体重箱线图和分小时图。方向键翻页，搜索框输入耳标号跳到该猪所在的测定站。文件夹可以整体拷贝或压缩，离线打开。</p>
 <p>Excel 工作簿的各工作表见<a href="output-zh.html#excel">《结果说明》</a>。每天定时运行见<a href="schedule-zh.html">《定时运行》</a>。</p>
 </div>
   </div>

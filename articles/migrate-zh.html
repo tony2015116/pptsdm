@@ -36,7 +36,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">tidypptsdm</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.0.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.1.0</span>
       </span>
     </div>
 
@@ -150,7 +150,7 @@ tidypptsda）；各函数也可直接传入文件夹或原始数据</td>
 <td>
 <code>fid_monitor()</code>（PDF）</td>
 <td>
-<code>plot_monitor(type = "intake")</code>，并收入
+<code>plot_monitor(type = "intake")</code>：同样的上下两栏堆叠柱状图，并收入
 <code><a href="../reference/write_monitor_report.html">write_monitor_report()</a></code>
 </td>
 </tr>
@@ -331,7 +331,7 @@ tidypptsda）；各函数也可直接传入文件夹或原始数据</td>
 都用第一台测定站的尺寸；日期轴每天一个刻度但只显示月份。</li>
 <li>
 <strong><code>fid_monitor()</code></strong>：一台测定站的猪多于 41
-头（调色板颜色数）时报错。现在用热图，猪多少都可以。</li>
+头（调色板颜色数）时报错。现在颜色数随猪数自动扩展，两栏共用一个图例，柱顶标出当天总采食量，最后一天没有访问或低采食的猪在图例中标出。</li>
 <li>
 <strong>修改输入数据</strong>：<code>hour_stat()</code>、<code>fid_monitor()</code>、<code>station_monitor()</code>
 会原地修改传入的数据；现在所有函数都在副本上计算。</li>

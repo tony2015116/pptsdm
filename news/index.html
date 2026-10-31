@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">tidypptsdm</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.0.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.1.0</span>
       </span>
     </div>
 
@@ -79,6 +79,13 @@
       <small>Source: <a href="https://github.com/tony2015116/tidypptsdm/blob/master/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="page-header" data-toc-text="1.1.0" id="tidypptsdm-110">tidypptsdm 1.1.0<a class="anchor" aria-label="anchor" href="#tidypptsdm-110"></a></h2>
+<ul><li>
+<code>plot_monitor(type = "intake")</code> draws stacked bars as <code>fid_monitor()</code> of pptsdm did: the share of each pig in the station’s feed intake (top) and its feed intake in kg (bottom), with the daily total above the bar. One colour per pig in both panels and one legend; the number of colours grows with the number of pigs. Pigs without visit or with low feed intake on the last day are marked in the legend. The heat map of 1.0.0 is now <code>type = "heatmap"</code> and is no longer in the HTML report.</li>
+<li>
+<code>plot_monitor(type = "trend")</code> has a body weight panel: the mean of the pigs’ daily median weight, with a band from the lightest to the heaviest pig.</li>
+</ul></div>
     <div class="section level2">
 <h2 class="page-header" data-toc-text="1.0.0" id="tidypptsdm-100">tidypptsdm 1.0.0<a class="anchor" aria-label="anchor" href="#tidypptsdm-100"></a></h2>
 <p>The package is renamed from pptsdm to <strong>tidypptsdm</strong> and rewritten on top of <a href="https://tony2015116.github.io/tidypptsda/" class="external-link">tidypptsda</a>. None of the old functions remain; see the article “从 pptsdm 迁移” for the mapping.</p>

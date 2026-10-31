@@ -27,7 +27,7 @@ write_monitor_tables() into out_dir/&amp;lt;last day&amp;gt;/."><meta property="
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">tidypptsdm</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.0.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.1.0</span>
       </span>
     </div>
 
@@ -172,12 +172,12 @@ it by hand with <code>Rscript</code>.</p></dd>
 <span class="r-in"><span><span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/data.table/man/fwrite.html" class="external-link">fwrite</a></span><span class="op">(</span><span class="fu">tidypptsda</span><span class="fu">::</span><span class="va"><a href="https://tony2015116.github.io/tidypptsda/reference/nedap.html" class="external-link">nedap</a></span>, <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">folder</span>, <span class="st">"nedap.csv"</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">out</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempdir</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"monitor_runs"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">script</span> <span class="op">&lt;-</span> <span class="fu">schedule_monitor</span><span class="op">(</span><span class="va">folder</span>, <span class="va">out</span>, days <span class="op">=</span> <span class="fl">7</span>, register <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BB00;">✔</span> Monitor script written to <span style="color: #0000BB;">/tmp/Rtmpom7sD9/monitor_runs/tidypptsdm_monitor.R</span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BB00;">✔</span> Monitor script written to <span style="color: #0000BB;">/tmp/Rtmp95Z29K/monitor_runs/tidypptsdm_monitor.R</span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/readLines.html" class="external-link">readLines</a></span><span class="op">(</span><span class="va">script</span><span class="op">)</span>, sep <span class="op">=</span> <span class="st">"\n"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> # Written by tidypptsdm::schedule_monitor() on 2026-10-31 00:08</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> # Written by tidypptsdm::schedule_monitor() on 2026-10-31 00:50</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> # Daily monitor of the testing stations: edit the settings below if needed.</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> mon &lt;- tidypptsdm::run_monitor("/tmp/Rtmpom7sD9/exports", days = 7)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> out &lt;- file.path("/tmp/Rtmpom7sD9/monitor_runs", format(mon$settings$end_date))</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> mon &lt;- tidypptsdm::run_monitor("/tmp/Rtmp95Z29K/exports", days = 7)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> out &lt;- file.path("/tmp/Rtmp95Z29K/monitor_runs", format(mon$settings$end_date))</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> tidypptsdm::write_monitor_report(mon, out)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> tidypptsdm::write_monitor_tables(mon, out, format = "xlsx")</span>
 <span class="r-in"><span><span class="co"># run once by hand</span></span></span>
@@ -192,14 +192,14 @@ it by hand with <code>Rscript</code>.</p></dd>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">  └ unidentified (kept, identified = FALSE)     211    0.7%</span></span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #555555;">  └ body weight 0 (set to NA)                   391    1.2%</span></span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BBBB;">ℹ</span> No pig was seen at more than one station</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BB00;">✔</span> 30 pigs at 2 stations, 31,863 visits over 97 days <span style="color: #555555;">0.2s</span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BB00;">✔</span> 30 pigs at 2 stations, 31,863 visits over 97 days <span style="color: #555555;">0.1s</span></span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BBBB;">ℹ</span> No <span style="color: #00BB00;">breed</span> column. To use breed in the feed intake model and breed-specific limits, add it with `add_breed()`.</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> </span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BBBB;">──</span> <span style="font-weight: bold;">Monitoring NEDAP stations: 2024-05-19 to 2024-05-25 (7 days)</span> <span style="color: #00BBBB;">────────────────</span></span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BBBB;">ℹ</span> 2 stations, 28 pigs; on 2024-05-25: 366 visits, 84.8 kg feed</span>
 <span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BB00;">✔</span> No alerts</span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BB00;">✔</span> Report of 2 stations written to <span style="color: #0000BB;">/tmp/Rtmpom7sD9/monitor_runs/2024-05-25/index.html</span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BB00;">✔</span> Wrote <span style="color: #0000BB;">/tmp/Rtmpom7sD9/monitor_runs/2024-05-25/monitor.xlsx</span> (16 sheets)</span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BB00;">✔</span> Report of 2 stations written to <span style="color: #0000BB;">/tmp/Rtmp95Z29K/monitor_runs/2024-05-25/index.html</span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BB00;">✔</span> Wrote <span style="color: #0000BB;">/tmp/Rtmp95Z29K/monitor_runs/2024-05-25/monitor.xlsx</span> (16 sheets)</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/list.files.html" class="external-link">list.files</a></span><span class="op">(</span><span class="va">out</span>, recursive <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  [1] "2024-05-25/img/station_101_hours.png" </span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>  [2] "2024-05-25/img/station_101_intake.png"</span>
@@ -218,12 +218,12 @@ it by hand with <code>Rscript</code>.</p></dd>
 <span class="r-in"><span><span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/data.table/man/fwrite.html" class="external-link">fwrite</a></span><span class="op">(</span><span class="fu">tidypptsda</span><span class="fu">::</span><span class="va"><a href="https://tony2015116.github.io/tidypptsda/reference/nedap.html" class="external-link">nedap</a></span>, <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">folder</span>, <span class="st">"nedap.csv"</span><span class="op">)</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">out</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempdir</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"monitor_runs"</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">script</span> <span class="op">&lt;-</span> <span class="fu">schedule_monitor</span><span class="op">(</span><span class="va">folder</span>, <span class="va">out</span>, days <span class="op">=</span> <span class="fl">7</span>, register <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span></span>
-<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BB00;">✔</span> Monitor script written to <span style="color: #0000BB;">/tmp/Rtmpom7sD9/monitor_runs/tidypptsdm_monitor.R</span></span>
+<span class="r-msg co"><span class="r-pr">#&gt;</span> <span style="color: #00BB00;">✔</span> Monitor script written to <span style="color: #0000BB;">/tmp/Rtmp95Z29K/monitor_runs/tidypptsdm_monitor.R</span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/readLines.html" class="external-link">readLines</a></span><span class="op">(</span><span class="va">script</span><span class="op">)</span>, sep <span class="op">=</span> <span class="st">"\n"</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> # Written by tidypptsdm::schedule_monitor() on 2026-10-31 00:08</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> # Written by tidypptsdm::schedule_monitor() on 2026-10-31 00:50</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> # Daily monitor of the testing stations: edit the settings below if needed.</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> mon &lt;- tidypptsdm::run_monitor("/tmp/Rtmpom7sD9/exports", days = 7)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> out &lt;- file.path("/tmp/Rtmpom7sD9/monitor_runs", format(mon$settings$end_date))</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> mon &lt;- tidypptsdm::run_monitor("/tmp/Rtmp95Z29K/exports", days = 7)</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> out &lt;- file.path("/tmp/Rtmp95Z29K/monitor_runs", format(mon$settings$end_date))</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> tidypptsdm::write_monitor_report(mon, out)</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> tidypptsdm::write_monitor_tables(mon, out, format = "xlsx")</span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/unlink.html" class="external-link">unlink</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">folder</span>, <span class="va">out</span><span class="op">)</span>, recursive <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></span>
