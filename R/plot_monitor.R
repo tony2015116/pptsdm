@@ -3,15 +3,22 @@
 #' Plot the Monitor, One Plot per Station
 #'
 #' @param x Result of [run_monitor()].
-#' @param type `"trend"` (default), `"intake"`, `"weight"` or `"hours"`.
-#'   See Details.
+#' @param type `"trend"` (default), `"intake"`, `"heatmap"`, `"weight"`
+#'   or `"hours"`. See Details.
 #' @param locations Stations to plot. Default `NULL`: all.
 #'
 #' @details
 #' - `"trend"`: pigs, visits, percentage of unidentified visits, occupation
-#'   time, feed intake and feed intake per pig on each day of the window.
-#'   Days without any visit are shaded red.
-#' - `"intake"`: feed intake (kg) of each pig on each day as a heat map. A
+#'   time, feed intake, feed intake per pig and body weight on each day of
+#'   the window. The body weight line is the mean over the pigs of their
+#'   daily median weight; the band goes from the lightest to the heaviest
+#'   pig. Days without any visit are shaded red.
+#' - `"intake"`: stacked bars, one colour per pig. Top: the share of each
+#'   pig in the feed intake of the station that day (%); bottom: its feed
+#'   intake (kg), with the daily total above the bar (windows of up to 31
+#'   days). In the legend, pigs without visit on the last day are marked
+#'   `[no visit]` and pigs below `low_feed_kg` `[low feed]`.
+#' - `"heatmap"`: feed intake (kg) of each pig on each day as a heat map. A
 #'   cross marks a day without visit, a circle a day below `low_feed_kg`.
 #'   With a window of at most 21 days the values are printed in the cells.
 #' - `"weight"`: box plots of the recorded body weights of each day.
@@ -28,15 +35,17 @@
 #' p <- plot_monitor(mon, "intake")
 #' p$plot[[1]]
 #' plot_monitor(mon, "trend", locations = "102")$plot[[1]]
+#' plot_monitor(mon, "heatmap", locations = "101")$plot[[1]]
 #' mon <- run_monitor(tidypptsda::nedap, verbose = 0)
 #' plot_monitor(mon, "intake")$plot[[1]]
-plot_monitor <- function(x, type = c("trend", "intake", "weight", "hours"),
+plot_monitor <- function(x, type = c("trend", "intake", "heatmap", "weight", "hours"),
                          locations = NULL) {
   check_monitor(x)
   type <- match.arg(type)
   locs <- pick_locations(x, locations)
   one <- switch(type, trend = plot_trend_one, intake = plot_intake_one,
-                weight = plot_weight_one, hours = plot_hours_one)
+                heatmap = plot_heatmap_one, weight = plot_weight_one,
+                hours = plot_hours_one)
   res <- lapply(locs, function(l) one(x, l))
   data.table::data.table(
     location = locs, type = type,
@@ -92,7 +101,8 @@ empty_plot <- function(title, msg) {
 trend_labels <- c(n_pigs = "Pigs", n_visits = "Visits",
                   pct_unidentified = "Unidentified (%)",
                   occupation_h = "Occupation (h)", feed_kg = "Feed (kg)",
-                  feed_per_pig_kg = "Feed per pig (kg)")
+                  feed_per_pig_kg = "Feed per pig (kg)",
+                  weight_kg = "Weight (kg)")
 
 plot_trend_one <- function(x, l) {
   s <- x$settings
@@ -104,20 +114,31 @@ plot_trend_one <- function(x, l) {
                            variable.factor = FALSE)
   long[, metric := factor(trend_labels[metric], levels = trend_labels)]
   down <- d[n_visits == 0L, .(date)]
+  # weight band: lightest to heaviest pig of the day (daily medians)
+  band <- x$pigs[location == l & !is.na(weight_kg),
+                 .(lo = min(weight_kg), hi = max(weight_kg)), by = date]
+  band[, metric := factor(trend_labels[["weight_kg"]], levels = trend_labels)]
   p <- ggplot2::ggplot(long, ggplot2::aes(date, value))
   if (nrow(down) > 0L) {
     p <- p + ggplot2::geom_rect(data = down, inherit.aes = FALSE,
                                 ggplot2::aes(xmin = date - 0.5, xmax = date + 0.5),
                                 ymin = -Inf, ymax = Inf, fill = "#B42318", alpha = 0.15)
   }
+  if (nrow(band) > 0L) {
+    p <- p + ggplot2::geom_ribbon(data = band, inherit.aes = FALSE,
+                                  ggplot2::aes(x = date, ymin = lo, ymax = hi),
+                                  fill = "#999999", alpha = 0.25)
+  }
   p <- p +
     ggplot2::geom_line(ggplot2::aes(colour = metric), na.rm = TRUE) +
     ggplot2::geom_point(ggplot2::aes(colour = metric), size = 1.6, na.rm = TRUE) +
     ggplot2::facet_grid(metric ~ ., scales = "free_y", switch = "y") +
-    ggplot2::scale_colour_manual(values = pptm_palette(length(trend_labels)), guide = "none") +
+    ggplot2::scale_colour_manual(values = c(pptm_palette(length(trend_labels) - 1L), "#1B2A4A"),
+                                 guide = "none") +
     date_scale(s) +
     ggplot2::labs(x = NULL, y = NULL, title = paste("Station", l),
                   subtitle = paste0(format(s$start_date), " to ", format(s$end_date),
+                                    "; weight band: lightest to heaviest pig",
                                     if (nrow(down) > 0L) "; red: no visits")) +
     pptm_theme() +
     ggplot2::theme(strip.placement = "outside",
@@ -126,7 +147,73 @@ plot_trend_one <- function(x, l) {
   list(plot = p, width = plot_width(s$days), height = 3.2 * length(trend_labels) + 3)
 }
 
+# Distinct colours for many pigs: ColorBrewer Paired and Dark2 (as in
+# pptsdm), then interpolated.
+pig_palette <- function(n) {
+  pal <- c("#A6CEE3", "#1F78B4", "#B2DF8A", "#33A02C", "#FB9A99", "#E31A1C",
+           "#FDBF6F", "#FF7F00", "#CAB2D6", "#6A3D9A", "#B15928", "#8DD3C7",
+           "#1B9E77", "#D95F02", "#7570B3", "#E7298A", "#66A61E", "#E6AB02",
+           "#A6761D", "#666666")
+  if (n > length(pal)) pal <- grDevices::colorRampPalette(pal)(n)
+  pal[seq_len(n)]
+}
+
 plot_intake_one <- function(x, l) {
+  s <- x$settings
+  title <- paste("Station", l, "- feed intake per pig")
+  d <- x$pigs[location == l & n_visits > 0L]
+  if (nrow(d) == 0L) {
+    return(list(plot = empty_plot(title, "No identified pig in the window"),
+                width = 16, height = 6))
+  }
+  lv <- natural_order(d$responder)
+  ps <- x$pig_summary[location == l]
+  flag <- ps$status[match(lv, ps$responder)]
+  labels <- paste0(lv, ifelse(flag %in% "no_visit", " [no visit]",
+                              ifelse(flag %in% "low_feed", " [low feed]", "")))
+  d[, pig := factor(responder, levels = lv)]
+  d[, total := sum(feed_kg), by = date]
+  d[, share := data.table::fifelse(total > 0, 100 * feed_kg / total, 0)]
+  panels <- c("Share of station feed (%)", "Feed intake (kg)")
+  long <- rbind(d[, .(date, pig, value = share, panel = panels[1])],
+                d[, .(date, pig, value = feed_kg, panel = panels[2])])
+  long[, panel := factor(panel, levels = panels)]
+  p <- ggplot2::ggplot(long, ggplot2::aes(date, value, fill = pig)) +
+    ggplot2::geom_col(width = 0.8, colour = "white", linewidth = 0.1,
+                      position = ggplot2::position_stack(reverse = TRUE)) +
+    ggplot2::facet_grid(panel ~ ., scales = "free_y", switch = "y") +
+    ggplot2::scale_fill_manual(values = pig_palette(length(lv)), labels = labels,
+                               name = "Pig", drop = FALSE) +
+    ggplot2::scale_y_continuous(expand = ggplot2::expansion(mult = c(0, 0.08)))
+  if (s$days <= 31L) {
+    tot <- unique(d[, .(date, total)])
+    tot[, panel := factor(panels[2], levels = panels)]
+    p <- p + ggplot2::geom_text(data = tot, inherit.aes = FALSE,
+                                ggplot2::aes(date, total, label = formatC(total, format = "f", digits = 1)),
+                                vjust = -0.4, size = 2.6, colour = "#1D2330")
+  }
+  n_flag <- sum(flag %in% c("no_visit", "low_feed"))
+  ncol <- max(1L, ceiling(length(lv) / 25))
+  p <- p + date_scale(s) +
+    ggplot2::guides(fill = ggplot2::guide_legend(ncol = ncol)) +
+    ggplot2::labs(x = NULL, y = NULL, title = title,
+                  subtitle = paste0(length(lv), " pigs; bottom: daily total above the bar",
+                                    if (n_flag > 0L) paste0("; ", n_flag, " pig",
+                                      if (n_flag > 1L) "s", " marked in the legend on ",
+                                      format(s$end_date)))) +
+    pptm_theme() +
+    ggplot2::theme(legend.position = "right",
+                   legend.key.size = ggplot2::unit(0.4, "cm"),
+                   legend.text = ggplot2::element_text(size = 8),
+                   strip.placement = "outside",
+                   strip.text.y.left = ggplot2::element_text(angle = 90),
+                   strip.background = ggplot2::element_blank(),
+                   panel.grid.major.x = ggplot2::element_blank())
+  list(plot = p, width = plot_width(s$days) + 4 * ncol + 2,
+       height = max(18, 0.45 * length(lv) / ncol + 6))
+}
+
+plot_heatmap_one <- function(x, l) {
   s <- x$settings
   d <- x$pigs[location == l]
   title <- paste("Station", l, "- feed intake per pig")

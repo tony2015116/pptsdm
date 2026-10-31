@@ -41,8 +41,9 @@ Open \code{index.html} in a web browser:
 \item the first page is an overview of the last day: stations, pigs,
 visits, feed intake, the alerts, a table of all stations and one of
 all houses, and the settings;
-\item then one page per station: its alerts, the four plots of
-\code{\link[=plot_monitor]{plot_monitor()}} and a table of its pigs.
+\item then one page per station: its alerts, the plots \code{"trend"},
+\code{"intake"}, \code{"weight"} and \code{"hours"} of \code{\link[=plot_monitor]{plot_monitor()}} and a table of
+its pigs.
 }
 
 Turn the pages with the arrow keys (or Page Up / Page Down, Home, End),
