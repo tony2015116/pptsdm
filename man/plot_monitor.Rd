@@ -6,15 +6,15 @@
 \usage{
 plot_monitor(
   x,
-  type = c("trend", "intake", "heatmap", "weight", "hours"),
+  type = c("trend", "intake", "weight", "hours"),
   locations = NULL
 )
 }
 \arguments{
 \item{x}{Result of \code{\link[=run_monitor]{run_monitor()}}.}
 
-\item{type}{\code{"trend"} (default), \code{"intake"}, \code{"heatmap"}, \code{"weight"}
-or \code{"hours"}. See Details.}
+\item{type}{\code{"trend"} (default), \code{"intake"}, \code{"weight"} or \code{"hours"}.
+See Details.}
 
 \item{locations}{Stations to plot. Default \code{NULL}: all.}
 }
@@ -38,9 +38,6 @@ pig in the feed intake of the station that day (\%); bottom: its feed
 intake (kg), with the daily total above the bar (windows of up to 31
 days). In the legend, pigs without visit on the last day are marked
 \verb{[no visit]} and pigs below \code{low_feed_kg} \verb{[low feed]}.
-\item \code{"heatmap"}: feed intake (kg) of each pig on each day as a heat map. A
-cross marks a day without visit, a circle a day below \code{low_feed_kg}.
-With a window of at most 21 days the values are printed in the cells.
 \item \code{"weight"}: box plots of the recorded body weights of each day.
 \item \code{"hours"}: visits, occupation time and feed intake per hour of the
 last day.
@@ -51,7 +48,6 @@ mon <- run_monitor(tidypptsda::nedap, verbose = 0)
 p <- plot_monitor(mon, "intake")
 p$plot[[1]]
 plot_monitor(mon, "trend", locations = "102")$plot[[1]]
-plot_monitor(mon, "heatmap", locations = "101")$plot[[1]]
 mon <- run_monitor(tidypptsda::nedap, verbose = 0)
 plot_monitor(mon, "intake")$plot[[1]]
 }

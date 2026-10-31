@@ -121,7 +121,7 @@ p$plot[[1]]
 plot_monitor(mon2, "intake", locations = "101")$plot[[1]]
 ```
 
-`"heatmap"` 是采食量热图（以前的样式，天数不多时适合查看），`"weight"` 是每天体重的箱线图，`"hours"` 是最后一天每小时的访问、占用时间和采食量。`save_monitor_plots()` 按合适的尺寸保存成 PNG 或 PDF。
+`"weight"` 是每天体重的箱线图，`"hours"` 是最后一天每小时的访问、占用时间和采食量。`save_monitor_plots()` 按合适的尺寸保存成 PNG 或 PDF。
 
 ## 7. 报告与表格
 
