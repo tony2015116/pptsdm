@@ -34,6 +34,9 @@ Documentation (in Chinese):
 [从 pptsdm
 迁移](https://tony2015116.github.io/tidypptsdm/articles/migrate-zh.html).
 
+A Python version with a Windows desktop app (no R or Python needed) is
+[tidypptsdm-py](https://tony2015116.github.io/tidypptsdm-py/).
+
 ## Installation
 
 ``` r

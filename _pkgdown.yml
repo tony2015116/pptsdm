@@ -5,13 +5,18 @@ template:
 navbar:
   bg: light
   structure:
-    left:  [getstarted, reference, articles, news]
+    left:  [getstarted, reference, articles, news, python]
     right: [github, lightswitch]
 
   components:
     getstarted:
       text: Get started
       href: articles/get-started.html
+    python:
+      text: Python 版
+      icon: fab fa-python
+      href: https://tony2015116.github.io/tidypptsdm-py/
+      aria-label: Python version
     github:
       icon: fab fa-github fa-lg
       href: https://github.com/tony2015116/tidypptsdm
