@@ -17,7 +17,7 @@ utils::globalVariables(c(
   "pct_unidentified", "pct_weight_outlier", "pig", "pig_w", "responder",
   "start", "status", "value", "weight", "weight_kg", "days_since_visit",
   "last_feed_kg", "N", "type", "saved", "file", "plot",
-  "i.n_stations", "total"
+  "i.n_stations", "total", "share", "lo", "hi", "panel"
 ))
 
 `%||%` <- function(x, y) if (is.null(x)) y else x

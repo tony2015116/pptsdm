@@ -1,3 +1,16 @@
+# tidypptsdm 1.1.0
+
+* `plot_monitor(type = "intake")` draws stacked bars as `fid_monitor()` of
+  pptsdm did: the share of each pig in the station's feed intake (top)
+  and its feed intake in kg (bottom), with the daily total above the bar.
+  One colour per pig in both panels and one legend; the number of colours
+  grows with the number of pigs. Pigs without visit or with low feed
+  intake on the last day are marked in the legend. The heat map of 1.0.0
+  is now `type = "heatmap"` and is no longer in the HTML report.
+* `plot_monitor(type = "trend")` has a body weight panel: the mean of the
+  pigs' daily median weight, with a band from the lightest to the
+  heaviest pig.
+
 # tidypptsdm 1.0.0
 
 The package is renamed from pptsdm to **tidypptsdm** and rewritten on top

@@ -153,11 +153,16 @@ wide_table(mon$pigs, "feed_kg")
 
 # Plots
 
-`plot_monitor()` draws one plot per station. There are four types:
+`plot_monitor()` draws one plot per station. There are five types:
 
-- `"trend"`: pigs, visits, unidentified visits, occupation time and feed
-  intake over the window; days without any visit are shaded red;
-- `"intake"`: feed intake of every pig on every day as a heat map, with a
+- `"trend"`: pigs, visits, unidentified visits, occupation time, feed
+  intake and body weight over the window; days without any visit are
+  shaded red;
+- `"intake"`: stacked bars of the feed intake of each pig on each day: its
+  share of the station's feed (top) and kg (bottom), as `fid_monitor()`
+  of pptsdm drew them; pigs that did not visit or ate too little on the
+  last day are marked in the legend;
+- `"heatmap"`: feed intake of every pig on every day as a heat map, with a
   cross for a day without visit and a circle for a low-feed day;
 - `"weight"`: recorded body weights per day as box plots;
 - `"hours"`: visits, occupation time and feed intake per hour of the last

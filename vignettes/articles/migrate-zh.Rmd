@@ -25,7 +25,7 @@ pak::pak("tony2015116/pptsdm@v0.1.4")
 |---|---|
 | `pptsda::import_csv()` + `process_data()` | `read_station()` + `prep_visits()`（来自 tidypptsda）；各函数也可直接传入文件夹或原始数据 |
 | `monitor_all()` | `run_monitor()` + `write_monitor_report()` + `write_monitor_tables()` |
-| `fid_monitor()`（PDF） | `plot_monitor(type = "intake")`，并收入 `write_monitor_report()` |
+| `fid_monitor()`（PDF） | `plot_monitor(type = "intake")`：同样的上下两栏堆叠柱状图，并收入 `write_monitor_report()` |
 | `station_monitor()`（PNG） | `plot_monitor(type = "trend")`、`plot_monitor(type = "weight")`，并收入 `write_monitor_report()` |
 | `table_monitor()`（Excel） | `write_monitor_tables()` |
 | `monitor_schedule()` | `schedule_monitor()` |
@@ -78,7 +78,7 @@ write_monitor_tables(mon, "D:/nedap/monitor")
 - **体重单位**：NEDAP 的体重是 g，由 `prep_visits()` 统一换算成 kg，体重为 0 视为未称重。
 - **Excel 色阶**：旧版色阶多覆盖一列，`feed_time_n` 工作表的色阶规则匹配不到任何列。
 - **`station_monitor()`**：所有 PNG 都用第一台测定站的尺寸；日期轴每天一个刻度但只显示月份。
-- **`fid_monitor()`**：一台测定站的猪多于 41 头（调色板颜色数）时报错。现在用热图，猪多少都可以。
+- **`fid_monitor()`**：一台测定站的猪多于 41 头（调色板颜色数）时报错。现在颜色数随猪数自动扩展，两栏共用一个图例，柱顶标出当天总采食量，最后一天没有访问或低采食的猪在图例中标出。
 - **修改输入数据**：`hour_stat()`、`fid_monitor()`、`station_monitor()` 会原地修改传入的数据；现在所有函数都在副本上计算。
 - **`process_data()`**：被调用 4 次，结果有一次没有用到；现在 `run_monitor()` 只预处理一次。
 - **`merge_data()`**：用一张表的逻辑向量去索引另一张表的列名，能得到正确结果纯属巧合；并且定义了两遍。

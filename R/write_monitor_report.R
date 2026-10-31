@@ -8,8 +8,9 @@
 #' - the first page is an overview of the last day: stations, pigs,
 #'   visits, feed intake, the alerts, a table of all stations and one of
 #'   all houses, and the settings;
-#' - then one page per station: its alerts, the four plots of
-#'   [plot_monitor()] and a table of its pigs.
+#' - then one page per station: its alerts, the plots `"trend"`,
+#'   `"intake"`, `"weight"` and `"hours"` of [plot_monitor()] and a table of
+#'   its pigs.
 #'
 #' Turn the pages with the arrow keys (or Page Up / Page Down, Home, End),
 #' the buttons or the list of stations; type a pig ID in the search box to
@@ -258,8 +259,8 @@ monitor_html <- function(x, locs, files, title) {
            html_esc(l), "\" hidden><h1>Station ", html_esc(l), "</h1><p class=\"lead\">", sub, "</p>",
            if (nrow(al) > 0L) paste0("<h2>Alerts <span class=\"count\">", nrow(al), "</span></h2>",
                                      html_alerts(al, page_of, link = FALSE)),
-           fig(l, "trend", "Daily trend over the window; red: days without visits"),
-           fig(l, "intake", "Feed intake per pig and day; &times; no visit, &#9675; low feed"),
+           fig(l, "trend", "Daily trend over the window, with the body weight of the pigs (band: lightest to heaviest); red: days without visits"),
+           fig(l, "intake", "Feed intake per pig and day: share of the station (top) and kg (bottom); pigs without visit or with low feed on the last day are marked in the legend"),
            "<h2>Pigs</h2>", html_pig_table(ps[location == l]),
            fig(l, "weight", "Recorded body weights per day"),
            fig(l, "hours", paste("Visits, occupation and feed intake per hour of", format(s$end_date))),

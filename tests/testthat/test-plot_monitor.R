@@ -2,7 +2,7 @@
 
 test_that("plots for every type", {
   mon <- run_monitor(tidypptsda::nedap, days = 5, verbose = 0)
-  for (tp in c("trend", "intake", "weight", "hours")) {
+  for (tp in c("trend", "intake", "heatmap", "weight", "hours")) {
     p <- plot_monitor(mon, tp)
     expect_equal(p$location, c("101", "102"))
     expect_true(all(vapply(p$plot, ggplot2::is.ggplot, logical(1))))
@@ -11,6 +11,15 @@ test_that("plots for every type", {
     labs <- unlist(lapply(p$plot, function(g) c(g$labels$title, g$labels$subtitle)))
     expect_false(any(grepl("[^ -~]", labs)))
   }
+  # a pig without visit on the last day is marked in the intake legend
+  v <- prep_visits(tidypptsda::nedap, verbose = 0)
+  end <- max(v$date)
+  pig <- v[location == "101" & identified, responder[1]]
+  mon2 <- run_monitor(v[!(responder %in% pig & date == end)], days = 5, verbose = 0)
+  g <- plot_monitor(mon2, "intake", locations = "101")$plot[[1]]
+  b <- ggplot2::ggplot_build(g)
+  expect_true(any(grepl("\\[no visit\\]", b$plot$scales$get_scales("fill")$get_labels())))
+  expect_true("Weight (kg)" %in% levels(plot_monitor(mon2, "trend", "101")$plot[[1]]$data$metric))
   expect_error(plot_monitor(mon, "trend", locations = "999"), "Unknown station")
   expect_error(plot_monitor(list()), "run_monitor")
 })
