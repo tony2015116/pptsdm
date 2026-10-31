@@ -1,0 +1,13 @@
+pandoc: 3.8.3
+pkgdown: 2.2.1
+pkgdown_sha: ~
+articles:
+  get-started: get-started.html
+  articles/migrate-zh: migrate-zh.html
+  articles/output-zh: output-zh.html
+  articles/schedule-zh: schedule-zh.html
+  articles/tidypptsdm-zh: tidypptsdm-zh.html
+last_built: 2026-10-31T00:07Z
+urls:
+  reference: https://tony2015116.github.io/tidypptsdm/reference
+  article: https://tony2015116.github.io/tidypptsdm/articles
