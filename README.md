@@ -1,117 +1,116 @@
-# pptsdm <a href='https://tony2015116.github.io/pptsdm/'><img src='man/figures/logo.svg'  width="120" align="right" />
-<!--apple-touch-icon-120x120.png-->
-<!-- <picture><source srcset="reference/figures/apple-touch-icon-120x120.png" media="(prefers-color-scheme: dark)"></picture> -->
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+# tidypptsdm <a href="https://tony2015116.github.io/tidypptsdm/"><img src="man/figures/logo.svg" align="right" height="120" alt="tidypptsdm website" /></a>
 
 <!-- badges: start -->
-[![GitHub R package version](https://img.shields.io/github/r-package/v/tony2015116/pptsdm)](#)
-[![GitHub last commit](https://img.shields.io/github/last-commit/tony2015116/pptsdm)](#)
+
+[![R-CMD-check](https://github.com/tony2015116/tidypptsdm/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/tony2015116/tidypptsdm/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
-**pptsdm** is an R package that enables automatic monitor the stations and pigs in the pig farm which using nedap pig performance test stations.`station_monitor()` can monitor the number of pigs within a testing station, total feed intake, total visit time, total visit frequency, and overall weight condition. `fid_monitor()` can monitor the feed intake and proportion of each pig within a single testing station.`table_monitor()` can monitor several informations in table fromat.`monitor_schedule()` packages the previous two functions into one that can be set to monitor on a regular basis.
+tidypptsdm watches the automatic feeding stations (NEDAP and FIRE) of a
+pig performance test from day to day. It is the daily companion of
+[tidypptsda](https://tony2015116.github.io/tidypptsda/), which reads and
+prepares the data and computes ADG, ADFI and FCR at the end of the test.
 
-# Installation
-You can install the development version from GitHub with:
+- One call, `run_monitor()`, gives the daily tables of the last days per
+  station, house, pig and hour, and the **alerts of the last day**:
+  stations without visits, unidentified visits, drops in feed intake,
+  pigs that did not visit or ate too little.
+- Days without any visit are kept with zero counts, so a station that
+  stopped recording or a pig that stopped eating is never missing from a
+  table.
+- `write_monitor_report()` writes an offline HTML report to browse
+  station by station; `write_monitor_tables()` an Excel workbook with
+  colour scales, or CSV files.
+- `schedule_monitor()` runs it all every morning (Windows Task Scheduler
+  or cron).
+- Few dependencies: cli, data.table, ggplot2 and tidypptsda.
+
+Documentation (in Chinese):
+[快速入门](https://tony2015116.github.io/tidypptsdm/articles/tidypptsdm-zh.html),
+[结果说明](https://tony2015116.github.io/tidypptsdm/articles/output-zh.html),
+[定时运行](https://tony2015116.github.io/tidypptsdm/articles/schedule-zh.html),
+[从 pptsdm
+迁移](https://tony2015116.github.io/tidypptsdm/articles/migrate-zh.html).
+
+## Installation
+
 ``` r
-# install.packages("devtools")
-devtools::install_github("tony2015116/pptsdm")
 # install.packages("pak")
-pak::pak("tony2015116/pptsdm")
+pak::pak("tony2015116/tidypptsdm")
 ```
+
+Version 0.1.4 (pptsdm, the earlier API) stays available:
+
+``` r
+pak::pak("tony2015116/pptsdm@v0.1.4")
+```
+
 ## Example
 
-This is a basic example which shows you how to download pig performance test CSVs data:
+``` r
+library(tidypptsdm)
+
+# A folder of exports works too: run_monitor("path/to/exports")
+mon <- run_monitor(tidypptsda::nedap, days = 7)
+#> 
+#> ── Preparing NEDAP visits ──────────────────────────────────────────────────────
+#>   Visits read                                31,863
+#>   └ unidentified (kept, identified = FALSE)     211    0.7%
+#>   └ body weight 0 (set to NA)                   391    1.2%
+#> ℹ No pig was seen at more than one station
+#> ✔ 30 pigs at 2 stations, 31,863 visits over 97 days 0.2s
+#> ℹ No breed column. To use breed in the feed intake model and breed-specific limits, add it with `add_breed()`.
+#> 
+#> ── Monitoring NEDAP stations: 2024-05-19 to 2024-05-25 (7 days) ────────────────
+#> ℹ 2 stations, 28 pigs; on 2024-05-25: 366 visits, 84.8 kg feed
+#> ✔ No alerts
+
+# One row per station and day
+head(mon$stations)
+#>    location       date n_pigs n_visits n_unidentified pct_unidentified
+#> 1:      101 2024-05-19     13      192              2              1.0
+#> 2:      101 2024-05-20     13      201              4              2.0
+#> 3:      101 2024-05-21     13      228              2              0.9
+#> 4:      101 2024-05-22     13      214              3              1.4
+#> 5:      101 2024-05-23     13      234              1              0.4
+#> 6:      101 2024-05-24     13      154              1              0.6
+#>    occupation_h feed_kg feed_per_pig_kg weight_kg pct_weight_outlier
+#> 1:        13.88  50.923           3.903    126.83                3.7
+#> 2:        13.38  49.585           3.786    128.02                6.6
+#> 3:        12.54  46.784           3.576    128.81                7.1
+#> 4:        12.63  44.780           3.429    130.49                6.2
+#> 5:        13.22  47.120           3.624    131.21                9.0
+#> 6:        12.66  44.424           3.415    132.80                7.2
+
+# Stations in rows, days in columns
+wide_table(mon$stations, "feed_kg")
+#>    location  05-19  05-20  05-21  05-22 05-23  05-24  05-25   total
+#> 1:      101 50.923 49.585 46.784 44.780 47.12 44.424 42.030 325.646
+#> 2:      102 58.752 56.385 47.664 53.857 50.52 55.163 42.784 365.125
+
+# Pigs that need a look on the last day
+mon$pig_summary[status != "ok"]
+#> Empty data.table (0 rows and 11 cols): location,responder,days,no_visit_days,low_feed_days,mean_feed_kg...
+```
 
 ``` r
-# Require packages
-library(pptsdm)
+plot_monitor(mon, "intake", locations = "101")$plot[[1]]
+```
 
-# Load CSV data
-csv_files <- list.files("path/to/csv/data", full.names = T, pattern = ".csv", recursive = T)
-csv_data <- pptsda::import_csv(csv_files, package = "data.table")
+<img src="man/figures/README-plot-intake-1.png" width="100%" />
 
-# Feed intake monitor
-fid_monitor(data = csv_data, station_type = "nedap", save_path = "C:/Users/Dell/Downloads/test")
+Write the report and the workbook:
 
-# Station monitor
-station_monitor(data = csv_data, station_type = "nedap", save_path = "C:/Users/Dell/Downloads/test")
+``` r
+write_monitor_report(mon, "monitor/2024-05-25", open = TRUE)
+write_monitor_tables(mon, "monitor/2024-05-25")
+```
 
-# Monitor station and data in Excel
-res <- table_monitor(data = csv_data, days = n, save_path = "C:/Users/Dell/Downloads/test")
-# Monitor the number of times 'na' appears in the last n days
-head(res$responder_na)
-# Monitor the percentage of extreme weight records in the last n days
-head(res$extreme_weight)
-# Monitor the visiting time and frequency of pigs in the last n days
-head(res$feed_time_n)
-# Monitor the low feedintake over the last n days
-head(res$low_feedintake)
-# Monitor the total feed intake over the last n days
-head(res$all_feedintake)
-# Monitor the average feed intake over the last n days
-head(res$mean_feedintake)
-# Monitor the average weight per pen over the last n days
-head(res$house_weight)
-# Monitor visit time in each hour over the last 1 day.
-head(res$visit_n_hour)
-# Monitor feed intake time in each hour over the last 1 day.
-head(res$feed_time_hour)
-# Monitor feed intake in each hour over the last 1 day.
-head(res$feed_intake_hour)
+Run it every morning at 7:30 on the export folder:
 
-# Monitor all by hands
-monitor_all(csv_data, begin_date = "2024-05-01", days = 5, save_path = "C:/Users/Dell/Downloads/test")
-
-# Set a monitor task
-monitor_schedule(
-  taskname = "ppt_csv_monitor",
-  schedule = "DAILY",
-  starttime = "10:05",
-  startdate = format(Sys.Date(), "%Y/%m/%d"),
-  rscript_args = list(house_width = "1", 
-                      days = 5,
-                      begin_date = "2024-05-01", 
-                      csv_path = "C:/Users/Dell/Documents/projects/pptsdm_data",
-                      save_path = "C:/Users/Dell/Downloads/test"))
-# Delete monitor task
-taskscheduleR::taskscheduler_delete("ppt_csv_monitor")
-
-# Use hour_stat()
-data <- data_csv[, date := as.Date(visit_time)]
-
-# Use nest_dt() in tidyfst
-res <- data.table::copy(data) |>
-  nest_dt(date, .name = "data") |>
-  mutate_dt(data = map2(date, data, \(x, y) hour_stat(data = y, target_date = x))) |>
-  mutate_dt(data = map(data, \(x) x$feed_intake)) |>
-  unnest_dt("data")
-  
-# Use functions in tidyverse
-## functions about hour_stat()
-my_function <- function(x) {
-  x <- data.table::as.data.table(x)
-  date = unique(x$date)
-  res <- hour_stat(data = x, target_date = date)
-  res$feed_intake
-}
-## Use group_split() in tidyverse
-data_split <- data |>
-  as.data.frame() |>
-  group_split(date)
-
-names(data_split) <- data_split |>
-  map(.f = ~pull(.x, date)) |>
-  map(.f = ~as.character(.x)) |>
-  map(.f = ~unique(.x)) 
-
-res <- data_split |>
-  map(., \(x) my_function(x)) |>
-  map(as.data.frame) |>
-  bind_rows(.id = "date")
-
-## Use group_nest() in tidyverse
-res <- data |>
-  as.data.frame() |>
-  group_nest(date, keep = T) |>
-  mutate(data = map(data, \(x) my_function(x))) |>
-  unnest(data)
+``` r
+schedule_monitor("D:/nedap/exports", "D:/nedap/monitor", time = "07:30",
+                 days = 7, house_width = 1)
 ```

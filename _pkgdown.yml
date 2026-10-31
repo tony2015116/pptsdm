@@ -1,61 +1,74 @@
-url: https://github.com/tony2015116/pptsdm
+url: https://tony2015116.github.io/tidypptsdm/
 template:
-  package: preferably
-  params:
-    toggle: manual
-
-home:
-  links:
-  # - text: GitHub Repo
-    # href: https://github.com/wviechtb/metafor
-  # - text: Browse source code
-  #   href: https://github.com/tony2015116/pptsdd
-  # - text: Report a bug
-  #   href: https://github.com/tony2015116/pptsdd/issues
-  - text: Author page
-    href: https://tony2015116.github.io/
-
+  bootswatch: cosmo
+  theme: arrow-dark
 navbar:
-  left:
-    - text: "Introduction"
-      href: articles/basic-usage.html
-    - text: "Functions"
-      href: reference/index.html
-    # - text: "Articles"
-    #   menu:
-    #   - text: "Get started"
-    #     href: articles/basic-usage.html
-    - text: "Changelog"
-      href: news/index.html
-  right:
-    # - icon: fa-twitter fa-lg
-    #   href: https://twitter.com/tonyituite
-    - icon: fab fa-github fa-lg
-      href: https://github.com/tony2015116/pptsdm
-    # - icon: fa fa-signal fa-lg
-    #   href: https://tony2015116.gitee.io/pptsdm
+  bg: light
+  structure:
+    left:  [getstarted, reference, articles, news]
+    right: [github, lightswitch]
+
+  components:
+    getstarted:
+      text: Get started
+      href: articles/get-started.html
+    github:
+      icon: fab fa-github fa-lg
+      href: https://github.com/tony2015116/tidypptsdm
+      aria-label: GitHub
 
 reference:
-  - title: monitor functions
-    desc: monitor the stations and pigs
-    contents:
-      - station_monitor
-      - fid_monitor
-      - table_monitor
-      - monitor_all
-  - title: schedule monitor functions
-    desc: monitor stations and pigs in schedule
-    contents:
-      - monitor_schedule
-  - title: small monitor functions
-    desc: conduct more flexible monitoring or analyze the results of monitoring
-    contents:
-      - process_data
-      - responder_na
-      - house_weight
-      - extreme_time_n
-      - low_feedintake
-      - all_feedintake
-      - number_location
-      - house_feedintake
-      - hour_stat
+- title: Daily round
+  desc: Run every table and the alerts of the last day in one call.
+  contents:
+  - run_monitor
+- title: Daily tables
+  desc: One row per station, house or pig and day of the window, also for days without any visit; and the hours of one day.
+  contents:
+  - monitor_stations
+  - monitor_houses
+  - monitor_pigs
+  - monitor_hours
+  - wide_table
+- title: Plots
+  desc: One plot per station - trend, feed intake heat map, body weights, hours of the day.
+  contents:
+  - plot_monitor
+  - save_monitor_plots
+- title: Export
+  desc: An HTML report to browse station by station, and an Excel workbook or CSV files.
+  contents:
+  - write_monitor_report
+  - write_monitor_tables
+- title: Run every day
+  desc: Write the monitor script and schedule it (Windows Task Scheduler or cron).
+  contents:
+  - schedule_monitor
+- title: Read and prepare station data
+  desc: Re-exported from tidypptsda.
+  contents:
+  - reexports
+
+articles:
+- title: 入门
+  navbar: 入门
+  desc: 从导出文件到报告：每天的巡检流程。
+  contents:
+  - articles/tidypptsdm-zh
+- title: 结果
+  navbar: 结果
+  desc: 每张表、每一列、每条警报和每张图的含义。
+  contents:
+  - articles/output-zh
+- title: 运行
+  navbar: 运行
+  desc: 每天定时运行；从 pptsdm 0.1.4 迁移。
+  contents:
+  - articles/schedule-zh
+  - articles/migrate-zh
+- title: internal
+  contents:
+  - get-started
+
+news:
+  one_page: true

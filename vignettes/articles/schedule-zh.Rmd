@@ -1,0 +1,81 @@
+---
+title: "定时运行"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{定时运行}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+```{r setup, message = FALSE}
+library(tidypptsdm)
+```
+
+`schedule_monitor()` 做两件事：
+
+1. 写一个 R 脚本：读取导出文件夹中的全部文件，运行 `run_monitor()`，把 HTML 报告和 Excel 工作簿写到 `out_dir/<最后一天>/`；
+2. 让它每天定时运行：Windows 上注册到"任务计划程序"（需要 taskscheduleR 包），Linux 和 macOS 上打印一行 crontab 配置。
+
+## Windows
+
+```{r, eval = FALSE}
+install.packages("taskscheduleR")
+schedule_monitor(
+  folder = "D:/nedap/exports",     # 测定站导出文件所在的文件夹
+  out_dir = "D:/nedap/monitor",    # 结果文件夹，每天一个子文件夹
+  time = "07:30",                  # 每天运行的时间
+  days = 7, house_width = 1        # run_monitor() 的参数
+)
+```
+
+任务名默认为 `tidypptsdm_monitor`，脚本 `tidypptsdm_monitor.R` 保存在 `out_dir`（可用 `script_dir` 改），taskscheduleR 会在旁边写运行日志。删除任务：
+
+```{r, eval = FALSE}
+taskscheduleR::taskscheduler_delete("tidypptsdm_monitor")
+```
+
+## Linux 和 macOS
+
+同样调用 `schedule_monitor()`，它会打印一行，例如：
+
+```
+30 7 * * * "/usr/lib/R/bin/Rscript" "/data/monitor/tidypptsdm_monitor.R" >> "/data/monitor/tidypptsdm_monitor.log" 2>&1
+```
+
+运行 `crontab -e`，把这一行加进去即可。tidypptsdm 不会自己改动 crontab。
+
+## 只写脚本
+
+`register = FALSE` 只写脚本，可以手动运行、放进别的调度工具，或者先检查一遍：
+
+```{r}
+folder <- file.path(tempdir(), "exports")
+dir.create(folder, showWarnings = FALSE)
+data.table::fwrite(tidypptsda::nedap, file.path(folder, "nedap.csv"))
+out <- file.path(tempdir(), "monitor")
+
+script <- schedule_monitor(folder, out, days = 7, low_feed_kg = 0.8,
+                           register = FALSE)
+cat(readLines(script), sep = "\n")
+```
+
+脚本是普通的 R 代码，参数写在 `run_monitor()` 的调用里，需要时直接编辑。手动运行一次：
+
+```{r, message = FALSE}
+source(script)
+list.files(out, recursive = TRUE)
+```
+
+```{r, include = FALSE}
+unlink(c(folder, out), recursive = TRUE)
+```
+
+## 注意
+
+- 报告按最后一个完整的日期命名：导出数据的最后一天如果是今天，取昨天（见 `run_monitor()` 的 `end_date`）。所以把运行时间设在导出之后即可，当天的数据不完整也不影响。
+- 文件夹中的所有导出文件每次都会重新读取。文件很多时，可把早已结束的批次移到别的文件夹。
+- 列名与默认格式不同的导出，在 `...` 里传 `station = "nedap"` 或 `"fire"`；需要格式文件时，修改脚本中的 `run_monitor()` 调用，先用 `read_station(folder, format = ...)` 读入。

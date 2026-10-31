@@ -1,35 +1,43 @@
-Package: pptsdm
-Title: Breeding Tools
-Version: 0.1.4
-Authors@R: c(
-    person("Guo Meng", , , "tony2015116@163.com", role = c("aut", "cre")),
-    person("Guo Meng", role = "cph")
-  )
-Description: An R package that can monitor the csv data and stations from
-    the Nedap in pig farm.
+Package: tidypptsdm
+Title: Daily Monitoring of Pig Performance Testing Stations
+Version: 1.0.0
+Authors@R:
+    person("Meng", "Guo", , "tony2015116@163.com", role = c("aut", "cre", "cph"))
+Description: Daily monitoring of automatic pig feeding stations (NEDAP and
+    FIRE) during a performance test: per station, house, pig and hour of
+    the day, with alerts for stations without visits, unidentified visits,
+    drops in feed intake and pigs that stop eating. Results are written as
+    an HTML report to browse station by station and as an Excel workbook,
+    and the monitor can run every day as a scheduled task. Data are read
+    and prepared with 'tidypptsda'.
 License: MIT + file LICENSE
-URL: https://github.com/tony2015116/pptsdm
-BugReports: https://github.com/tony2015116/pptsdm/issues
-Imports: 
-    cowplot,
+URL: https://tony2015116.github.io/tidypptsdm/,
+    https://github.com/tony2015116/tidypptsdm
+BugReports: https://github.com/tony2015116/tidypptsdm/issues
+Depends:
+    R (>= 4.1.0)
+Imports:
+    cli,
     data.table,
     ggplot2,
-    lubridate,
-    openxlsx,
-    patchwork,
-    pptsda,
-    purrr,
-    scales,
+    grDevices,
     stats,
-    taskscheduleR,
-    tidyr,
+    tidypptsda,
     utils
-Suggests: 
+Suggests:
     knitr,
-    rmarkdown
+    openxlsx,
+    rmarkdown,
+    taskscheduleR,
+    testthat (>= 3.0.0),
+    withr
 VignetteBuilder: 
     knitr
-Config/fusen/version: 0.5.2
+Remotes:
+    tony2015116/tidypptsda
+Config/fusen/version: 0.7.2
+Config/testthat/edition: 3
 Encoding: UTF-8
+Language: en-US
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.1
