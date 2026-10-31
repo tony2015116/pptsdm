@@ -17,7 +17,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">tidypptsdm</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.1.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.1.1</span>
       </span>
     </div>
 
@@ -60,6 +60,13 @@
 <li>
   <a href="../news/index.html">Changelog</a>
 </li>
+<li>
+  <a href="https://tony2015116.github.io/tidypptsdm-py/">
+    <span class="fab fa-python"></span>
+
+    Python 版
+  </a>
+</li>
       </ul><ul class="nav navbar-nav navbar-right"><li>
   <a href="https://github.com/tony2015116/tidypptsdm" class="external-link">
     <span class="fab fa-github fa-lg"></span>
@@ -80,9 +87,14 @@
     </div>
 
     <div class="section level2">
+<h2 class="page-header" data-toc-text="1.1.1" id="tidypptsdm-111">tidypptsdm 1.1.1<a class="anchor" aria-label="anchor" href="#tidypptsdm-111"></a></h2>
+<ul><li>The heat map (<code>plot_monitor(type = "heatmap")</code>) is removed: with many days it is hard to read. The stacked-bar intake plot and the pig table show the feed intake of each pig.</li>
+<li>The intake plot is as wide as its legend needs, so long tag numbers (e.g. 15-digit electronic ear tags) no longer squeeze the bars.</li>
+</ul></div>
+    <div class="section level2">
 <h2 class="page-header" data-toc-text="1.1.0" id="tidypptsdm-110">tidypptsdm 1.1.0<a class="anchor" aria-label="anchor" href="#tidypptsdm-110"></a></h2>
 <ul><li>
-<code>plot_monitor(type = "intake")</code> draws stacked bars as <code>fid_monitor()</code> of pptsdm did: the share of each pig in the station’s feed intake (top) and its feed intake in kg (bottom), with the daily total above the bar. One colour per pig in both panels and one legend; the number of colours grows with the number of pigs. Pigs without visit or with low feed intake on the last day are marked in the legend. The heat map of 1.0.0 is now <code>type = "heatmap"</code> and is no longer in the HTML report.</li>
+<code>plot_monitor(type = "intake")</code> draws stacked bars as <code>fid_monitor()</code> of pptsdm did: the share of each pig in the station’s feed intake (top) and its feed intake in kg (bottom), with the daily total above the bar. One colour per pig in both panels and one legend; the number of colours grows with the number of pigs. Pigs without visit or with low feed intake on the last day are marked in the legend. The heat map of 1.0.0 is no longer in the HTML report.</li>
 <li>
 <code>plot_monitor(type = "trend")</code> has a body weight panel: the mean of the pigs’ daily median weight, with a band from the lightest to the heaviest pig.</li>
 </ul></div>

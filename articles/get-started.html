@@ -36,7 +36,7 @@
       </button>
       <span class="navbar-brand">
         <a class="navbar-link" href="../index.html">tidypptsdm</a>
-        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.1.0</span>
+        <span class="version label label-default" data-toggle="tooltip" data-placement="bottom" title="">1.1.1</span>
       </span>
     </div>
 
@@ -81,6 +81,13 @@
 </li>
 <li>
   <a href="../news/index.html">Changelog</a>
+</li>
+<li>
+  <a href="https://tony2015116.github.io/tidypptsdm-py/">
+    <span class="fab fa-python"></span>
+
+    Python 版
+  </a>
 </li>
       </ul>
 <ul class="nav navbar-nav navbar-right">
@@ -406,10 +413,6 @@ on each day: its share of the station’s feed (top) and kg (bottom), as
 <code>fid_monitor()</code> of pptsdm drew them; pigs that did not visit
 or ate too little on the last day are marked in the legend;</li>
 <li>
-<code>"heatmap"</code>: feed intake of every pig on every day as a
-heat map, with a cross for a day without visit and a circle for a
-low-feed day;</li>
-<li>
 <code>"weight"</code>: recorded body weights per day as box
 plots;</li>
 <li>
@@ -427,7 +430,7 @@ hour of the last day.</li>
 <code class="sourceCode R"><span><span class="va">mon</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_monitor.html">run_monitor</a></span><span class="op">(</span><span class="fu">tidypptsda</span><span class="fu">::</span><span class="va"><a href="https://tony2015116.github.io/tidypptsda/reference/nedap.html" class="external-link">nedap</a></span>, verbose <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span>
 <span><span class="va">dir</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempdir</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"monitor_plots"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/save_monitor_plots.html">save_monitor_plots</a></span><span class="op">(</span><span class="fu"><a href="../reference/plot_monitor.html">plot_monitor</a></span><span class="op">(</span><span class="va">mon</span>, <span class="st">"trend"</span><span class="op">)</span>, <span class="va">dir</span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #00BB00;">✔</span> Saved 2 of 2 plots to <span style="color: #0000BB;">/tmp/RtmpqqKEAm/monitor_plots</span></span></span>
+<span><span class="co">#&gt; <span style="color: #00BB00;">✔</span> Saved 2 of 2 plots to <span style="color: #0000BB;">/tmp/RtmptAdiZM/monitor_plots</span></span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/unlink.html" class="external-link">unlink</a></span><span class="op">(</span><span class="va">dir</span>, recursive <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
 </div>
 </div>
@@ -443,7 +446,7 @@ keys and type a pig ID to jump to its station.</p>
 <code class="sourceCode R"><span><span class="va">mon</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_monitor.html">run_monitor</a></span><span class="op">(</span><span class="fu">tidypptsda</span><span class="fu">::</span><span class="va"><a href="https://tony2015116.github.io/tidypptsda/reference/nedap.html" class="external-link">nedap</a></span>, verbose <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span>
 <span><span class="va">dir</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempdir</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"monitor_report"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/write_monitor_report.html">write_monitor_report</a></span><span class="op">(</span><span class="va">mon</span>, <span class="va">dir</span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #00BB00;">✔</span> Report of 2 stations written to <span style="color: #0000BB;">/tmp/RtmpqqKEAm/monitor_report/index.html</span></span></span>
+<span><span class="co">#&gt; <span style="color: #00BB00;">✔</span> Report of 2 stations written to <span style="color: #0000BB;">/tmp/RtmptAdiZM/monitor_report/index.html</span></span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/unlink.html" class="external-link">unlink</a></span><span class="op">(</span><span class="va">dir</span>, recursive <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
@@ -453,7 +456,7 @@ keys and type a pig ID to jump to its station.</p>
 <code class="sourceCode R"><span><span class="va">mon</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/run_monitor.html">run_monitor</a></span><span class="op">(</span><span class="fu">tidypptsda</span><span class="fu">::</span><span class="va"><a href="https://tony2015116.github.io/tidypptsda/reference/nedap.html" class="external-link">nedap</a></span>, verbose <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span>
 <span><span class="va">dir</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempdir</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"monitor_tables"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/write_monitor_tables.html">write_monitor_tables</a></span><span class="op">(</span><span class="va">mon</span>, <span class="va">dir</span>, format <span class="op">=</span> <span class="st">"csv"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #00BB00;">✔</span> Wrote 6 CSV files to <span style="color: #0000BB;">/tmp/RtmpqqKEAm/monitor_tables</span></span></span>
+<span><span class="co">#&gt; <span style="color: #00BB00;">✔</span> Wrote 6 CSV files to <span style="color: #0000BB;">/tmp/RtmptAdiZM/monitor_tables</span></span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/unlink.html" class="external-link">unlink</a></span><span class="op">(</span><span class="va">dir</span>, recursive <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
 </div>
 <div class="section level2">
@@ -471,12 +474,12 @@ Linux and macOS the function prints the line to add with
 <span><span class="fu">data.table</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/data.table/man/fwrite.html" class="external-link">fwrite</a></span><span class="op">(</span><span class="fu">tidypptsda</span><span class="fu">::</span><span class="va"><a href="https://tony2015116.github.io/tidypptsda/reference/nedap.html" class="external-link">nedap</a></span>, <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="va">folder</span>, <span class="st">"nedap.csv"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">out</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempdir</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"monitor_runs"</span><span class="op">)</span></span>
 <span><span class="va">script</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/schedule_monitor.html">schedule_monitor</a></span><span class="op">(</span><span class="va">folder</span>, <span class="va">out</span>, days <span class="op">=</span> <span class="fl">7</span>, register <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #00BB00;">✔</span> Monitor script written to <span style="color: #0000BB;">/tmp/RtmpqqKEAm/monitor_runs/tidypptsdm_monitor.R</span></span></span>
+<span><span class="co">#&gt; <span style="color: #00BB00;">✔</span> Monitor script written to <span style="color: #0000BB;">/tmp/RtmptAdiZM/monitor_runs/tidypptsdm_monitor.R</span></span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/readLines.html" class="external-link">readLines</a></span><span class="op">(</span><span class="va">script</span><span class="op">)</span>, sep <span class="op">=</span> <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; # Written by tidypptsdm::schedule_monitor() on 2026-10-31 00:50</span></span>
+<span><span class="co">#&gt; # Written by tidypptsdm::schedule_monitor() on 2026-10-31 06:38</span></span>
 <span><span class="co">#&gt; # Daily monitor of the testing stations: edit the settings below if needed.</span></span>
-<span><span class="co">#&gt; mon &lt;- tidypptsdm::run_monitor("/tmp/RtmpqqKEAm/exports", days = 7)</span></span>
-<span><span class="co">#&gt; out &lt;- file.path("/tmp/RtmpqqKEAm/monitor_runs", format(mon$settings$end_date))</span></span>
+<span><span class="co">#&gt; mon &lt;- tidypptsdm::run_monitor("/tmp/RtmptAdiZM/exports", days = 7)</span></span>
+<span><span class="co">#&gt; out &lt;- file.path("/tmp/RtmptAdiZM/monitor_runs", format(mon$settings$end_date))</span></span>
 <span><span class="co">#&gt; tidypptsdm::write_monitor_report(mon, out)</span></span>
 <span><span class="co">#&gt; tidypptsdm::write_monitor_tables(mon, out, format = "xlsx")</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/unlink.html" class="external-link">unlink</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">folder</span>, <span class="va">out</span><span class="op">)</span>, recursive <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
